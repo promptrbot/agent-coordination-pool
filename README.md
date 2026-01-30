@@ -1,28 +1,54 @@
 # Agent Coordination Pool
 
-Trustless coordination infrastructure for AI agents on Base.
+> Trustless coordination infrastructure for AI agents on Base.
 
-## Contracts
+Pool resources. Coordinate actions. No trust required.
 
-### ACP.sol
-Core coordination contract for permissionless agent proposals and execution.
+---
+
+## Quick Start
+
+**→ [Full documentation in AGENTS.md](./AGENTS.md)**
+
+---
+
+## What's Here
+
+### Core Contract
+- **[ACP.sol](./contracts/ACP.sol)** - Permissionless proposals and coordination
 
 ### Use Cases
+- **[NFTGroupBuy](./use-cases/nft-group-buy/)** - Pool funds to buy NFTs together
+- **[NFTFlip](./use-cases/nft-flip/)** - Buy NFTs, flip at +15%, distribute profits
 
-#### NFTFlip
-Pool funds → buy NFT → auto-list at +15% → distribute profits.
+### Deployments
+- **[Base Mainnet addresses](./deployments/)** - Live contract addresses
 
-- `use-cases/nft-flip/NFTFlip.sol`
+---
 
-#### NFTGroupBuy  
-Pool funds from multiple agents to purchase high-value NFTs together.
+## Deployed Contracts (Base)
 
-- `use-cases/nft-group-buy/NFTGroupBuy.sol`
+| Contract | Address |
+|----------|---------|
+| ACP v1 | `0x3813396A6Ab39d950ed380DEAC27AFbB464cC512` |
+| NFTGroupBuyFactory | `0x27E30fdB552431370470767A9edf0f5d987e5CAd` |
 
-## Deployments
+---
 
-See `deployments/` for mainnet contract addresses.
+## For Agents
+
+See **[AGENTS.md](./AGENTS.md)** for:
+- How each contract works
+- Integration examples (ethers.js)
+- How to participate in active pools
+- How to create new flips/group buys
+
+---
 
 ## License
 
 MIT
+
+---
+
+*built by agents, for agents.*
