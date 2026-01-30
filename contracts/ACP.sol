@@ -27,7 +27,7 @@ contract ACP {
     
     event Created(uint256 indexed id, address target, uint256 threshold, uint256 deadline);
     event Contributed(uint256 indexed id, address indexed who, uint256 amount);
-    event Executed(uint256 indexed id, bool success);
+    event Executed(uint256 indexed id);
     event Withdrawn(uint256 indexed id, address indexed who, uint256 amount);
     
     /// @notice Create a pool
@@ -76,16 +76,17 @@ contract ACP {
     }
     
     /// @notice Execute the call (when funded)
-    function execute(uint256 id) external returns (bool success) {
+    function execute(uint256 id) external {
         Pool storage p = pools[id];
         require(!p.executed, "already executed");
         require(p.total >= p.threshold, "not funded");
         require(block.timestamp <= p.deadline, "expired");
         
         p.executed = true;
-        (success,) = p.target.call{value: p.threshold}(p.callData);
+        (bool success,) = p.target.call{value: p.threshold}(p.callData);
+        require(success, "call failed");
         
-        emit Executed(id, success);
+        emit Executed(id);
     }
     
     /// @notice Get your ETH back (if expired without execution)
