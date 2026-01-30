@@ -10,16 +10,13 @@ pragma solidity ^0.8.20;
  *   2. contribute(poolId) with ETH
  *   3. When funded: execute(poolId)
  *   4. If expired: withdraw(poolId)
- * 
- * 87 lines. Fully auditable.
  */
 contract ACP {
     
     struct Pool {
         address target;           // Contract to call
         bytes callData;           // What to call
-        uint256 value;            // ETH to send
-        uint256 threshold;        // Min ETH needed
+        uint256 threshold;        // ETH needed (and sent)
         uint256 deadline;         // When it expires
         uint256 total;            // Total contributed
         bool executed;            // Already executed?
@@ -37,7 +34,6 @@ contract ACP {
     function create(
         address target,
         bytes calldata callData,
-        uint256 value,
         uint256 threshold,
         uint256 deadline
     ) external returns (uint256 id) {
@@ -48,24 +44,35 @@ contract ACP {
         Pool storage p = pools.push();
         p.target = target;
         p.callData = callData;
-        p.value = value;
         p.threshold = threshold;
         p.deadline = deadline;
         
         emit Created(id, target, threshold, deadline);
     }
     
-    /// @notice Add ETH to a pool
+    /// @notice Add ETH to a pool (excess refunded)
     function contribute(uint256 id) external payable {
         Pool storage p = pools[id];
         require(!p.executed, "already executed");
         require(block.timestamp <= p.deadline, "expired");
         require(msg.value > 0, "no value");
         
-        p.contributions[msg.sender] += msg.value;
-        p.total += msg.value;
+        uint256 remaining = p.threshold - p.total;
+        uint256 accepted = msg.value > remaining ? remaining : msg.value;
+        uint256 refund = msg.value - accepted;
         
-        emit Contributed(id, msg.sender, msg.value);
+        require(accepted > 0, "pool full");
+        
+        p.contributions[msg.sender] += accepted;
+        p.total += accepted;
+        
+        emit Contributed(id, msg.sender, accepted);
+        
+        // Refund excess
+        if (refund > 0) {
+            (bool ok,) = msg.sender.call{value: refund}("");
+            require(ok, "refund failed");
+        }
     }
     
     /// @notice Execute the call (when funded)
@@ -76,18 +83,15 @@ contract ACP {
         require(block.timestamp <= p.deadline, "expired");
         
         p.executed = true;
-        (success,) = p.target.call{value: p.value}(p.callData);
+        (success,) = p.target.call{value: p.threshold}(p.callData);
         
         emit Executed(id, success);
     }
     
-    /// @notice Get your ETH back (if expired or failed)
+    /// @notice Get your ETH back (if expired without execution)
     function withdraw(uint256 id) external {
         Pool storage p = pools[id];
-        require(
-            block.timestamp > p.deadline || (p.executed && p.total < p.threshold),
-            "cannot withdraw"
-        );
+        require(block.timestamp > p.deadline && !p.executed, "cannot withdraw");
         
         uint256 amount = p.contributions[msg.sender];
         require(amount > 0, "nothing to withdraw");
