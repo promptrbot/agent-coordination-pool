@@ -1,0 +1,31 @@
+{
+  "contract": "BasedPunksGroupBuy",
+  "address": "0xcf9dc48F8AfCD40ec1Be0D7BeD96adE67fd3bf46",
+  "txHash": "0x9fe9c2245a34fc9d765f26f56ee2343d90a76b44d24f8e9ea06adec83fdd0dd8",
+  "network": "base",
+  "chainId": 8453,
+  "deployer": "0x57636096f33d6CF2600C4CEd27B86720Ed39737C",
+  "deployedAt": "2026-01-30T15:56:33Z",
+  "blockNumber": 41499623,
+  "params": {
+    "commitDeadline": "2026-02-06T15:55:00Z",
+    "commitDeadlineUnix": 1738860954,
+    "minPoolSize": "0.05 ETH",
+    "minPoolSizeWei": "50000000000000000",
+    "maxPoolSize": "0.15 ETH",
+    "maxPoolSizeWei": "150000000000000000",
+    "targetTokenId": 0,
+    "operator": "0x35560c57711798c8b13021e8466265f9638140b9"
+  },
+  "nft": {
+    "collection": "Based Punks",
+    "contract": "0xcB28749c24AF4797808364D71d71539bc01E76d4",
+    "chain": "Base",
+    "floor": "~0.03 ETH",
+    "website": "https://nftpricefloor.com/basedpunks"
+  },
+  "links": {
+    "basescan": "https://basescan.org/address/0xcf9dc48F8AfCD40ec1Be0D7BeD96adE67fd3bf46",
+    "tx": "https://basescan.org/tx/0x9fe9c2245a34fc9d765f26f56ee2343d90a76b44d24f8e9ea06adec83fdd0dd8"
+  }
+}

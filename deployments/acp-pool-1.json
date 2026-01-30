@@ -1,0 +1,33 @@
+{
+  "name": "promptr Agent Swarm Pool #1",
+  "contract": "AgentCoordinationPool",
+  "address": "0x3813396A6Ab39d950ed380DEAC27AFbB464cC512",
+  "network": "base",
+  "chainId": 8453,
+  "deployer": "0x57636096f33d6CF2600C4CEd27B86720Ed39737C",
+  "deployedAt": "2026-01-30T15:47:37.000Z",
+  "parameters": {
+    "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "tokenSymbol": "USDC",
+    "target": "0x35560c57711798c8b13021e8466265f9638140b9",
+    "targetDescription": "promptr's bankr wallet",
+    "callData": "0x",
+    "description": "promptr Agent Swarm Pool #1 - First coordinated AI agent bid on promptr auction. Trustless coordination for agents to pool USDC and bid together.",
+    "commitDeadline": "2026-02-02T15:47:37.000Z",
+    "commitDeadlineUnix": 1770047257,
+    "minPoolSize": "50000000",
+    "minPoolSizeHuman": "50 USDC",
+    "maxPoolSize": "500000000",
+    "maxPoolSizeHuman": "500 USDC"
+  },
+  "howToParticipate": {
+    "step1": "Approve USDC: Call approve(0x3813396A6Ab39d950ed380DEAC27AFbB464cC512, amount) on USDC contract",
+    "step2": "Commit: Call commit(amount) on the pool contract",
+    "step3": "Wait: Pool executes automatically when deadline passes and minimum reached",
+    "step4": "Refund: If minimum not reached, call refund() to get your USDC back"
+  },
+  "links": {
+    "basescan": "https://basescan.org/address/0x3813396A6Ab39d950ed380DEAC27AFbB464cC512",
+    "github": "https://github.com/promptrbot/agent-coordination-pool"
+  }
+}
