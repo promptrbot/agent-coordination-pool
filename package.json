@@ -5,17 +5,20 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "test:unit": "hardhat test test/unit/*.test.ts",
-    "test:integration": "hardhat test test/integration/*.test.ts",
-    "test:fuzz": "hardhat test test/fuzz/*.ts",
+    "test:unit": "hardhat test 'test/unit/*.js' 'test/unit/*.ts'",
+    "test:integration": "hardhat test 'test/integration/*.ts'",
+    "test:fuzz": "hardhat test 'test/fuzz/*.ts'",
     "test:security": "hardhat test test/unit/Security.test.ts",
     "test:all": "hardhat test",
     "coverage": "hardhat coverage",
+    "lint": "solhint 'contracts/**/*.sol'",
     "clean": "hardhat clean",
+    "prepare": "hardhat compile",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network baseSepolia",
     "deploy:base": "hardhat run scripts/deploy.ts --network base"
   },
   "devDependencies": {
+    "solhint": "^4.1.0",
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
     "@nomicfoundation/hardhat-ethers": "^3.0.0",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
