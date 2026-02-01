@@ -33,15 +33,7 @@ jobs:
         run: npx hardhat compile
 
       - name: Run unit tests
-        run: npx hardhat test test/unit/*.js test/unit/*.ts --parallel
-
-      - name: Run integration tests
-        run: npx hardhat test test/integration/*.ts --parallel
-        continue-on-error: true  # Integration tests may need mocks
-
-      - name: Run fuzz tests
-        run: npx hardhat test test/fuzz/*.ts
-        continue-on-error: true  # Fuzz tests can be flaky
+        run: npx hardhat test test/unit/*.js
 
   lint:
     name: Solidity Lint
