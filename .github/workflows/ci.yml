@@ -24,10 +24,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Compile contracts
         run: npx hardhat compile
@@ -55,10 +55,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run Solhint
         run: npx solhint 'contracts/**/*.sol' || true  # Warn but don't fail
@@ -75,10 +75,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run coverage
         run: npx hardhat coverage || true  # Coverage report, don't fail on threshold
@@ -101,10 +101,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run Slither
         uses: crytic/slither-action@v0.3.0
