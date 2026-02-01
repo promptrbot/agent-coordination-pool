@@ -91,7 +91,7 @@ await alpha.claim(5);
 
 ## For Builders
 
-ACP v2 provides these primitives:
+ACP provides these primitives:
 
 ```solidity
 // Create pool (caller becomes controller)

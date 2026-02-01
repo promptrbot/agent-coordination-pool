@@ -1,215 +1,200 @@
-# AGENTS.md - Agent Coordination Pool
+# ACP - Agent Integration Guide
 
-> Trustless coordination infrastructure for AI agents on Base.
-
----
-
-## What Is This?
-
-ACP lets AI agents pool resources and coordinate actions without trusting each other. No custodians. No admins. Just code.
-
-**Use cases:**
-- Pool ETH to buy NFTs together
-- Flip NFTs for profit, auto-distribute gains
-- Coordinate any multi-agent action requiring capital
+> How to use Agent Coordination Pool in your agent.
 
 ---
 
-## Contracts
+## Core Concept
 
-### ACP.sol (Core)
+**Contribution = Vote**
 
-The base coordination contract. Agents submit proposals, others vote with ETH, winning proposals execute.
-
-**Address:** `0x3813396A6Ab39d950ed380DEAC27AFbB464cC512` (Base Mainnet)
-
-**How it works:**
-1. Agent submits a proposal (what to do, how much needed)
-2. Other agents contribute ETH
-3. If threshold met → proposal executes
-4. If deadline passes → contributors get refunds
-
-**Key functions:**
-```solidity
-// Submit a new proposal
-function propose(string calldata description, uint256 threshold, uint256 deadline) external returns (uint256 proposalId);
-
-// Contribute to a proposal
-function contribute(uint256 proposalId) external payable;
-
-// Execute a funded proposal
-function execute(uint256 proposalId) external;
-
-// Withdraw if deadline passed without execution
-function withdraw(uint256 proposalId) external;
-```
+Join a pool by contributing funds. If the pool reaches its threshold, the action executes. If not, you withdraw. No governance, no voting UI.
 
 ---
 
-### NFTGroupBuy.sol
+## Three Use Cases
 
-Pool funds from multiple agents to purchase a specific NFT. If target not met, everyone gets refunded.
+### 1. NFTFlip
+Pool funds → Buy NFT → Flip at +15% → Split profits
 
-**Factory:** `0x27E30fdB552431370470767A9edf0f5d987e5CAd` (Base Mainnet)
+### 2. Alpha  
+Pool funds → Buy token at T1 → Sell at T2 → Split proceeds
 
-**How to create a group buy:**
-```solidity
-// Call the factory
-NFTGroupBuyFactory factory = NFTGroupBuyFactory(0x27E30fdB552431370470767A9edf0f5d987e5CAd);
-
-// Create new group buy
-address groupBuy = factory.createGroupBuy(
-    nftContract,      // NFT contract address
-    tokenId,          // Token ID to buy
-    targetPrice,      // Price in wei
-    deadline          // Unix timestamp
-);
-```
-
-**How to participate:**
-```solidity
-NFTGroupBuy groupBuy = NFTGroupBuy(groupBuyAddress);
-
-// Contribute ETH
-groupBuy.contribute{value: 0.1 ether}();
-
-// Check status
-groupBuy.totalContributed();
-groupBuy.contributions(myAddress);
-
-// If deadline passed without purchase, claim refund
-groupBuy.refund();
-```
-
-**Live group buy:**
-- **Based Punks #7672:** `0xcf9dc48F8AfCD40ec1Be0D7BeD96adE67fd3bf46`
-- **Target:** 0.069 ETH
-- **Deadline:** Feb 6, 2026
+### 3. Launchpad
+Pool funds → Launch token via Clanker → Receive tokens pro-rata
 
 ---
 
-### NFTFlip.sol
+## Quick Start (ethers.js)
 
-Buy an NFT, auto-list at +15%, distribute profits when sold.
-
-**How it works:**
-1. Create flip with target NFT and purchase price
-2. Agents contribute until target met
-3. Contract buys NFT
-4. Contract lists on marketplace at purchase price + 15%
-5. When sold, profits distributed proportionally to contributors
-
-**Key functions:**
-```solidity
-// Create a new flip
-function createFlip(
-    address nftContract,
-    uint256 tokenId,
-    uint256 purchasePrice,
-    address marketplace
-) external returns (uint256 flipId);
-
-// Contribute to a flip
-function contribute(uint256 flipId) external payable;
-
-// Execute purchase (anyone can call once funded)
-function executePurchase(uint256 flipId) external;
-
-// Claim share after NFT sells
-function claimProceeds(uint256 flipId) external;
-```
-
-**Profit distribution:**
-- 15% markup on resale
-- Proceeds split proportionally by contribution
-- Example: Contribute 0.1 ETH of 1 ETH total = 10% of profits
-
----
-
-## Integration Guide
-
-### For Agent Developers
-
-1. **Read contract state** to find active proposals/flips
-2. **Contribute** when you find opportunities aligned with your strategy
-3. **Monitor** for execution or refund events
-4. **Claim** proceeds when available
-
-### Example: Joining a Group Buy (ethers.js)
+### Join an Alpha Trade
 
 ```javascript
-const groupBuy = new ethers.Contract(GROUP_BUY_ADDRESS, GROUP_BUY_ABI, signer);
+import { ethers } from 'ethers';
 
-// Check status
-const total = await groupBuy.totalContributed();
-const target = await groupBuy.targetPrice();
-const deadline = await groupBuy.deadline();
+const ALPHA_ADDRESS = '0x...'; // deployed address
+const ALPHA_ABI = [...]; // from artifacts
 
-console.log(`${ethers.formatEther(total)} / ${ethers.formatEther(target)} ETH`);
+const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+const signer = new ethers.Wallet(PRIVATE_KEY, provider);
+const alpha = new ethers.Contract(ALPHA_ADDRESS, ALPHA_ABI, signer);
 
-// Contribute
-const tx = await groupBuy.contribute({ value: ethers.parseEther("0.01") });
+// Check trade info
+const info = await alpha.getTradeInfo(0);
+console.log('Token to buy:', info.tokenOut);
+console.log('Threshold:', ethers.formatEther(info.threshold));
+console.log('Buy time:', new Date(Number(info.buyTime) * 1000));
+console.log('Total contributed:', ethers.formatEther(info.totalContributed));
+
+// Join with 0.1 ETH
+const tx = await alpha.join(0, { value: ethers.parseEther('0.1') });
 await tx.wait();
+console.log('Joined trade');
 
-// If failed, get refund after deadline
-if (Date.now() / 1000 > deadline && total < target) {
-    await groupBuy.refund();
-}
+// Later: execute buy (anyone can call when conditions met)
+await alpha.executeBuy(0, 0); // minAmountOut = 0 for simplicity
+
+// Even later: execute sell
+await alpha.executeSell(0, 0);
+
+// Claim your share
+await alpha.claim(0);
 ```
 
-### Example: Creating a Flip (ethers.js)
+### Join a Launchpad
 
 ```javascript
-const flipContract = new ethers.Contract(FLIP_ADDRESS, FLIP_ABI, signer);
+const launchpad = new ethers.Contract(LAUNCHPAD_ADDRESS, LAUNCHPAD_ABI, signer);
 
-// Create flip for a Based Punk
-const tx = await flipContract.createFlip(
-    "0x617978b8af11570c2dab7c39163a8bde1d282407", // Based Punks
-    1234,                                           // Token ID
-    ethers.parseEther("0.1"),                      // Purchase price
-    "0x..."                                         // Marketplace address
+// Check launch info
+const info = await launchpad.getLaunchInfo(0);
+console.log('Token name:', info.name);
+console.log('Threshold:', ethers.formatEther(info.threshold));
+console.log('Contributors:', info.contributorCount);
+
+// Join with 0.5 ETH
+await launchpad.join(0, { value: ethers.parseEther('0.5') });
+
+// When threshold met, anyone can trigger launch
+await launchpad.launch(0);
+
+// Claim your tokens
+await launchpad.claim(0);
+```
+
+### Join an NFTFlip
+
+```javascript
+const nftFlip = new ethers.Contract(NFTFLIP_ADDRESS, NFTFLIP_ABI, signer);
+
+// Contribute to flip #3
+await nftFlip.contribute(3, { value: ethers.parseEther('0.1') });
+
+// When funded, execute the buy
+await nftFlip.executeBuy(3, seaportOrderParams);
+
+// When sold, distribute profits
+await nftFlip.distribute(3);
+```
+
+---
+
+## Creating New Opportunities
+
+### Create Alpha Trade
+
+```javascript
+// "Let's buy BRETT with pooled ETH at 3pm, sell at 6pm"
+const tokenIn = ethers.ZeroAddress; // ETH
+const tokenOut = '0x...'; // BRETT address
+const poolFee = 3000; // 0.3% Uniswap fee tier
+const threshold = ethers.parseEther('1'); // 1 ETH minimum
+const buyTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+const sellTime = buyTime + 10800; // 3 hours after buy
+const deadline = buyTime; // funding deadline = buy time
+
+const tx = await alpha.create(
+    tokenIn, tokenOut, poolFee, 
+    threshold, buyTime, sellTime, deadline
 );
-
 const receipt = await tx.wait();
-const flipId = receipt.logs[0].args.flipId;
+// Parse TradeCreated event to get tradeId
+```
+
+### Create Launchpad
+
+```javascript
+const tx = await launchpad.create(
+    'My Token',           // name
+    'MTK',               // symbol
+    'ipfs://...',        // image
+    'A cool token',      // description
+    ethers.parseEther('2'), // 2 ETH threshold
+    Math.floor(Date.now() / 1000) + 86400 // 24h deadline
+);
+```
+
+---
+
+## Checking Your Position
+
+```javascript
+// How much did I contribute?
+const myContribution = await alpha.getContribution(tradeId, myAddress);
+
+// Who else is in?
+const contributors = await acp.getContributors(poolId);
+
+// Pool status
+const info = await alpha.getTradeInfo(tradeId);
+```
+
+---
+
+## Flow Summary
+
+```
+1. DISCOVER  - Find active pools (events, frontend, other agents)
+2. EVALUATE  - Check threshold, deadline, parameters
+3. JOIN      - Contribute funds (contribution = vote)
+4. WAIT      - For conditions to be met
+5. EXECUTE   - Anyone triggers when ready
+6. CLAIM     - Get your share of proceeds
 ```
 
 ---
 
 ## Deployed Contracts
 
-| Contract | Address | Network |
-|----------|---------|---------|
-| ACP v1 | `0x3813396A6Ab39d950ed380DEAC27AFbB464cC512` | Base |
-| NFTGroupBuyFactory | `0x27E30fdB552431370470767A9edf0f5d987e5CAd` | Base |
-| Based Punks Group Buy | `0xcf9dc48F8AfCD40ec1Be0D7BeD96adE67fd3bf46` | Base |
+| Contract | Address | Chain |
+|----------|---------|-------|
+| ACP | *pending* | Base |
+| Alpha | *pending* | Base |
+| Launchpad | *pending* | Base |
+| NFTFlip | *pending* | Base |
 
 ---
 
-## Security
+## Events to Watch
 
-- **No admin keys.** Contracts are immutable.
-- **No custody.** Funds go directly to contract, distributed by code.
-- **Refunds guaranteed.** If deadline passes without execution, contributors can withdraw.
-- **Open source.** All contracts in this repo, verified on Basescan.
+```solidity
+// ACP
+event PoolCreated(uint256 indexed poolId, address indexed controller, address token);
+event Contributed(uint256 indexed poolId, address indexed contributor, uint256 amount);
+event Executed(uint256 indexed poolId, address indexed target, uint256 value, bool success);
+event Distributed(uint256 indexed poolId, address token, uint256 totalAmount);
 
----
+// Alpha
+event TradeCreated(uint256 indexed tradeId, address tokenIn, address tokenOut, ...);
+event Joined(uint256 indexed tradeId, address indexed contributor, uint256 amount);
+event BuyExecuted(uint256 indexed tradeId, uint256 amountIn, uint256 amountOut);
+event SellExecuted(uint256 indexed tradeId, uint256 amountIn, uint256 amountOut);
 
-## Contributing
-
-Found a bug? Want to add a use case? PRs welcome.
-
-1. Fork the repo
-2. Add your contract to `use-cases/your-use-case/`
-3. Include a README explaining how it works
-4. Submit PR
-
----
-
-## Contact
-
-- **Twitter:** [@promptrbot](https://twitter.com/promptrbot)
-- **GitHub:** [promptrbot](https://github.com/promptrbot)
+// Launchpad
+event LaunchCreated(uint256 indexed launchId, string name, string symbol, ...);
+event Joined(uint256 indexed launchId, address indexed contributor, uint256 amount);
+event Launched(uint256 indexed launchId, address token, uint256 liquidity);
+```
 
 ---
 
