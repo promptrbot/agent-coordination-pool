@@ -36,19 +36,20 @@ interface IWETH {
     function deposit() external payable;
     function withdraw(uint256) external;
     function approve(address, uint256) external returns (bool);
+    function transfer(address, uint256) external returns (bool);
 }
 
 contract Alpha {
     using SafeERC20 for IERC20;
     
     ACP public immutable acp;
-    address public immutable swapRouter;  // Uniswap/Aerodrome router
+    address public immutable swapRouter;
     address public immutable weth;
     
     enum Status { Funding, Bought, Sold, Expired }
     
     struct Trade {
-        uint256 poolId;         // ACP pool ID
+        uint256 poolId;
         address tokenIn;        // Base token (address(0) for ETH)
         address tokenOut;       // Token to buy
         uint24 poolFee;         // DEX pool fee tier
@@ -73,7 +74,6 @@ contract Alpha {
     event Joined(uint256 indexed tradeId, address indexed contributor, uint256 amount);
     event BuyExecuted(uint256 indexed tradeId, uint256 amountIn, uint256 amountOut);
     event SellExecuted(uint256 indexed tradeId, uint256 amountIn, uint256 amountOut);
-    event Claimed(uint256 indexed tradeId, address indexed contributor, uint256 amount);
     
     constructor(address _acp, address _swapRouter, address _weth) {
         acp = ACP(payable(_acp));
@@ -83,7 +83,7 @@ contract Alpha {
     
     /// @notice Create a new trade opportunity
     function create(
-        address tokenIn,        // address(0) for ETH
+        address tokenIn,
         address tokenOut,
         uint24 poolFee,
         uint256 threshold,
@@ -96,7 +96,6 @@ contract Alpha {
         require(fundingDeadline <= buyTime, "deadline must be <= buyTime");
         require(threshold > 0, "threshold=0");
         
-        // Create ACP pool
         uint256 poolId = acp.createPool(tokenIn);
         
         tradeId = trades.length;
@@ -116,7 +115,7 @@ contract Alpha {
         emit TradeCreated(tradeId, tokenIn, tokenOut, threshold, buyTime, sellTime);
     }
     
-    /// @notice Join a trade (contribute funds)
+    /// @notice Join a trade (contribute ETH)
     function join(uint256 tradeId) external payable {
         Trade storage t = trades[tradeId];
         require(t.status == Status.Funding, "not funding");
@@ -153,23 +152,27 @@ contract Alpha {
         require(totalContributed >= t.threshold, "threshold not met");
         
         uint256 amountIn = totalContributed;
-        address actualTokenIn = t.tokenIn == address(0) ? weth : t.tokenIn;
         
-        // Wrap ETH if needed
         if (t.tokenIn == address(0)) {
+            // ETH pool: Pull ETH from ACP → wrap → swap
+            // Use execute to send ETH to this contract
+            acp.execute(t.poolId, address(this), amountIn, "");
+            
+            // Wrap to WETH
             IWETH(weth).deposit{value: amountIn}();
             IWETH(weth).approve(swapRouter, amountIn);
         } else {
-            // Execute to pull tokens from ACP, then swap
+            // ERC-20 pool: Pull tokens from ACP
             acp.execute(t.poolId, t.tokenIn, 0, 
                 abi.encodeCall(IERC20.transfer, (address(this), amountIn)));
-            IERC20(actualTokenIn).approve(swapRouter, amountIn);
+            IERC20(t.tokenIn).approve(swapRouter, amountIn);
         }
         
-        // Swap
+        // Swap to target token
+        address swapTokenIn = t.tokenIn == address(0) ? weth : t.tokenIn;
         uint256 amountOut = ISwapRouter(swapRouter).exactInputSingle(
             ISwapRouter.ExactInputSingleParams({
-                tokenIn: actualTokenIn,
+                tokenIn: swapTokenIn,
                 tokenOut: t.tokenOut,
                 fee: t.poolFee,
                 recipient: address(this),
@@ -191,15 +194,14 @@ contract Alpha {
         require(t.status == Status.Bought, "not bought");
         require(block.timestamp >= t.sellTime, "too early");
         
-        address actualTokenIn = t.tokenIn == address(0) ? weth : t.tokenIn;
+        address swapTokenOut = t.tokenIn == address(0) ? weth : t.tokenIn;
         
-        // Approve and swap back
+        // Swap back to base token
         IERC20(t.tokenOut).approve(swapRouter, t.amountBought);
-        
         uint256 amountOut = ISwapRouter(swapRouter).exactInputSingle(
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: t.tokenOut,
-                tokenOut: actualTokenIn,
+                tokenOut: swapTokenOut,
                 fee: t.poolFee,
                 recipient: address(this),
                 amountIn: t.amountBought,
@@ -208,9 +210,14 @@ contract Alpha {
             })
         );
         
-        // Unwrap WETH if needed
         if (t.tokenIn == address(0)) {
+            // Unwrap WETH → ETH, deposit back to ACP
             IWETH(weth).withdraw(amountOut);
+            acp.deposit{value: amountOut}(t.poolId);
+        } else {
+            // Transfer tokens back to ACP
+            IERC20(t.tokenIn).approve(address(acp), amountOut);
+            acp.depositToken(t.poolId, amountOut);
         }
         
         t.status = Status.Sold;
@@ -223,7 +230,6 @@ contract Alpha {
         Trade storage t = trades[tradeId];
         require(t.status == Status.Sold, "not sold");
         
-        // Distribute via ACP
         acp.distribute(t.poolId, t.tokenIn);
     }
     

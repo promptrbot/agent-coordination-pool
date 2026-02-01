@@ -47,6 +47,7 @@ contract Launchpad {
         uint256 threshold;      // Min ETH to launch
         uint256 deadline;       // Funding deadline
         address token;          // Deployed token (set after launch)
+        uint256 tokenBalance;   // Tokens received (for distribution)
         Status status;
     }
     
@@ -60,7 +61,7 @@ contract Launchpad {
         uint256 deadline
     );
     event Joined(uint256 indexed launchId, address indexed contributor, uint256 amount);
-    event Launched(uint256 indexed launchId, address token, uint256 liquidity);
+    event Launched(uint256 indexed launchId, address token, uint256 liquidity, uint256 tokensReceived);
     event Claimed(uint256 indexed launchId, address indexed contributor, uint256 amount);
     
     constructor(address _acp, address _clanker) {
@@ -95,6 +96,7 @@ contract Launchpad {
             threshold: threshold,
             deadline: deadline,
             token: address(0),
+            tokenBalance: 0,
             status: Status.Funding
         }));
         
@@ -120,18 +122,29 @@ contract Launchpad {
         (,,uint256 totalContributed,) = acp.getPoolInfo(l.poolId);
         require(totalContributed >= l.threshold, "threshold not met");
         
-        // Deploy token via Clanker with pooled ETH as liquidity
-        address token = IClanker(clanker).deployToken{value: totalContributed}(
-            l.name,
-            l.symbol,
-            l.image,
-            l.description
+        // Use ACP.execute to call Clanker with pool funds
+        bytes memory callData = abi.encodeCall(
+            IClanker.deployToken,
+            (l.name, l.symbol, l.image, l.description)
         );
         
+        bytes memory result = acp.execute(l.poolId, clanker, totalContributed, callData);
+        address token = abi.decode(result, (address));
+        
+        // Check how many tokens we received (sent to this contract or ACP)
+        uint256 tokensInLaunchpad = IERC20(token).balanceOf(address(this));
+        uint256 tokensInACP = IERC20(token).balanceOf(address(acp));
+        
+        // If tokens are here, transfer to ACP for distribution
+        if (tokensInLaunchpad > 0) {
+            IERC20(token).safeTransfer(address(acp), tokensInLaunchpad);
+        }
+        
         l.token = token;
+        l.tokenBalance = tokensInLaunchpad + tokensInACP;
         l.status = Status.Launched;
         
-        emit Launched(launchId, token, totalContributed);
+        emit Launched(launchId, token, totalContributed, l.tokenBalance);
     }
     
     /// @notice Claim your token allocation
