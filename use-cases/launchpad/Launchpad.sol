@@ -4,66 +4,80 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../contracts/ACP.sol";
-import "./SimpleToken.sol";
 
 /**
  * @title Launchpad
- * @notice Collective token launches. Pool ETH → Deploy token → Create liquidity → Distribute.
- * 
- * FOR AGENTS:
- *   1. Create a launch: name, symbol, threshold
- *   2. Contribute ETH (contribution = vote + allocation)
- *   3. Threshold met → launch() deploys token + creates pool
- *   4. claim() distributes tokens pro-rata
- *
- * Uses Aerodrome V2 for pool creation.
+ * @notice Collective token launches via Clanker v4.
  */
 
-/// @notice Aerodrome V2 Router interface (Velodrome fork)
-interface IAerodromeRouter {
-    struct Route {
-        address from;
-        address to;
-        bool stable;
-        address factory;
+interface IClanker {
+    struct TokenConfig {
+        address tokenAdmin;
+        string name;
+        string symbol;
+        bytes32 salt;
+        string image;
+        string metadata;
+        string context;
+        uint256 originatingChainId;
     }
     
-    function addLiquidityETH(
-        address token,
-        bool stable,
-        uint256 amountTokenDesired,
-        uint256 amountTokenMin,
-        uint256 amountETHMin,
-        address to,
-        uint256 deadline
-    ) external payable returns (uint256 amountToken, uint256 amountETH, uint256 liquidity);
+    struct PoolConfig {
+        address hook;
+        address pairedToken;
+        int24 tickIfToken0IsClanker;
+        int24 tickSpacing;
+        bytes poolData;
+    }
     
-    function factory() external view returns (address);
-}
-
-interface IAerodromeFactory {
-    function createPool(address tokenA, address tokenB, bool stable) external returns (address pool);
-    function getPool(address tokenA, address tokenB, bool stable) external view returns (address);
-}
-
-interface IWETH {
-    function deposit() external payable;
-    function withdraw(uint256) external;
-    function approve(address, uint256) external returns (bool);
+    struct LockerConfig {
+        address locker;
+        address[] rewardAdmins;
+        address[] rewardRecipients;
+        uint16[] rewardBps;
+        int24[] tickLower;
+        int24[] tickUpper;
+        uint16[] positionBps;
+        bytes lockerData;
+    }
+    
+    struct MevModuleConfig {
+        address mevModule;
+        bytes mevModuleData;
+    }
+    
+    struct ExtensionConfig {
+        address extension;
+        uint256 msgValue;
+        uint16 extensionBps;
+        bytes extensionData;
+    }
+    
+    struct DeploymentConfig {
+        TokenConfig tokenConfig;
+        PoolConfig poolConfig;
+        LockerConfig lockerConfig;
+        MevModuleConfig mevModuleConfig;
+        ExtensionConfig[] extensionConfigs;
+    }
+    
+    function deployToken(DeploymentConfig calldata config) external payable returns (address);
 }
 
 contract Launchpad {
     using SafeERC20 for IERC20;
     
-    // Base mainnet addresses
+    // Clanker v4 addresses (Base mainnet)
+    address public constant CLANKER = 0xE85A59c628F7d27878ACeB4bf3b35733630083a9;
     address public constant WETH = 0x4200000000000000000000000000000000000006;
-    address public constant AERODROME_ROUTER = 0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43;
-    address public constant AERODROME_FACTORY = 0x420DD381b31aEf6683db6B902084cB0FFECe40Da;
+    address public constant FEE_STATIC_HOOK_V2 = 0xb429d62f8f3bFFb98CdB9569533eA23bF0Ba28CC;
+    address public constant LOCKER = 0x63D2DfEA64b3433F4071A98665bcD7Ca14d93496;
+    address public constant MEV_MODULE_V2 = 0xebB25BB797D82CB78E1bc70406b13233c0854413;
+    address public constant DEVBUY = 0x1331f0788F9c08C8F38D52c7a1152250A9dE00be;
     
-    // Token economics
-    uint256 public constant TOTAL_SUPPLY = 1_000_000_000 * 1e18; // 1 billion tokens
-    uint256 public constant LP_PERCENTAGE = 20;      // 20% to liquidity pool
-    uint256 public constant DISTRIBUTE_PERCENTAGE = 80; // 80% to contributors
+    int24 public constant DEFAULT_TICK = -230400;
+    int24 public constant DEFAULT_TICK_SPACING = 200;
+    uint256 public constant CHAIN_ID = 8453;
     
     ACP public immutable acp;
     
@@ -73,77 +87,61 @@ contract Launchpad {
         uint256 poolId;
         string name;
         string symbol;
-        uint256 threshold;      // Min ETH to launch
-        uint256 deadline;       // Funding deadline
-        address token;          // Deployed token (set after launch)
-        address lpPool;         // Aerodrome pool (set after launch)
+        string image;
+        uint256 threshold;
+        uint256 deadline;
+        address token;
+        address creator;
         Status status;
     }
     
     Launch[] public launches;
     
-    event LaunchCreated(
-        uint256 indexed launchId,
-        string name,
-        string symbol,
-        uint256 threshold,
-        uint256 deadline
-    );
+    event LaunchCreated(uint256 indexed launchId, string name, string symbol, uint256 threshold);
     event Joined(uint256 indexed launchId, address indexed contributor, uint256 amount);
-    event Launched(
-        uint256 indexed launchId, 
-        address token, 
-        address pool,
-        uint256 ethLiquidity,
-        uint256 tokensToContributors
-    );
+    event Launched(uint256 indexed launchId, address token, uint256 ethRaised);
     
     constructor(address _acp) {
         acp = ACP(payable(_acp));
     }
     
-    /// @notice Create a new launch proposal
     function create(
         string calldata name,
         string calldata symbol,
+        string calldata image,
         uint256 threshold,
         uint256 deadline
     ) external returns (uint256 launchId) {
-        require(bytes(name).length > 0, "name empty");
-        require(bytes(symbol).length > 0, "symbol empty");
-        require(threshold > 0, "threshold=0");
-        require(deadline > block.timestamp, "deadline passed");
+        require(bytes(name).length > 0 && bytes(symbol).length > 0, "empty");
+        require(threshold > 0 && deadline > block.timestamp, "invalid");
         
-        // Create ETH pool in ACP
         uint256 poolId = acp.createPool(address(0));
-        
         launchId = launches.length;
+        
         launches.push(Launch({
             poolId: poolId,
             name: name,
             symbol: symbol,
+            image: image,
             threshold: threshold,
             deadline: deadline,
             token: address(0),
-            lpPool: address(0),
+            creator: msg.sender,
             status: Status.Funding
         }));
         
-        emit LaunchCreated(launchId, name, symbol, threshold, deadline);
+        emit LaunchCreated(launchId, name, symbol, threshold);
     }
     
-    /// @notice Join a launch by contributing ETH
     function join(uint256 launchId) external payable {
         Launch storage l = launches[launchId];
-        require(l.status == Status.Funding, "not funding");
-        require(block.timestamp <= l.deadline, "deadline passed");
+        require(l.status == Status.Funding && block.timestamp <= l.deadline, "closed");
         require(msg.value > 0, "no value");
         
         acp.contribute{value: msg.value}(l.poolId, msg.sender);
         emit Joined(launchId, msg.sender, msg.value);
     }
     
-    /// @notice Launch the token (anyone can call when threshold met)
     function launch(uint256 launchId) external {
         Launch storage l = launches[launchId];
         require(l.status == Status.Funding, "not funding");
@@ -151,94 +149,135 @@ contract Launchpad {
         (,,uint256 totalContributed,) = acp.getPoolInfo(l.poolId);
         require(totalContributed >= l.threshold, "threshold not met");
         
-        // Pull ETH from ACP
         acp.execute(l.poolId, address(this), totalContributed, "");
         
-        // 1. Deploy token with full supply to this contract
-        SimpleToken token = new SimpleToken(l.name, l.symbol, TOTAL_SUPPLY, address(this));
+        address token = _deployViaClanker(l, totalContributed);
         
-        // 2. Calculate splits
-        uint256 tokensForLP = (TOTAL_SUPPLY * LP_PERCENTAGE) / 100;
-        uint256 tokensForContributors = TOTAL_SUPPLY - tokensForLP;
-        
-        // 3. Create pool and add liquidity
-        address pool = IAerodromeFactory(AERODROME_FACTORY).getPool(
-            address(token), WETH, false
-        );
-        if (pool == address(0)) {
-            pool = IAerodromeFactory(AERODROME_FACTORY).createPool(
-                address(token), WETH, false
-            );
-        }
-        
-        // 4. Add liquidity (ETH + tokens)
-        token.approve(AERODROME_ROUTER, tokensForLP);
-        IAerodromeRouter(AERODROME_ROUTER).addLiquidityETH{value: totalContributed}(
-            address(token),
-            false,              // volatile pair
-            tokensForLP,
-            tokensForLP * 95 / 100,  // 5% slippage
-            totalContributed * 95 / 100,
-            address(this),      // LP tokens stay here (locked)
-            block.timestamp
-        );
-        
-        // 5. Send remaining tokens to ACP for distribution
-        token.transfer(address(acp), tokensForContributors);
-        
-        l.token = address(token);
-        l.lpPool = pool;
+        l.token = token;
         l.status = Status.Launched;
         
-        emit Launched(launchId, address(token), pool, totalContributed, tokensForContributors);
+        uint256 bal = IERC20(token).balanceOf(address(this));
+        if (bal > 0) IERC20(token).safeTransfer(address(acp), bal);
+        
+        emit Launched(launchId, token, totalContributed);
     }
     
-    /// @notice Claim your token allocation
+    function _deployViaClanker(Launch storage l, uint256 ethAmount) internal returns (address) {
+        IClanker.DeploymentConfig memory cfg;
+        
+        // Token config
+        cfg.tokenConfig = IClanker.TokenConfig({
+            tokenAdmin: l.creator,
+            name: l.name,
+            symbol: l.symbol,
+            salt: bytes32(0),
+            image: l.image,
+            metadata: "",
+            context: '{"interface":"ACP"}',
+            originatingChainId: CHAIN_ID
+        });
+        
+        // Pool config
+        cfg.poolConfig = IClanker.PoolConfig({
+            hook: FEE_STATIC_HOOK_V2,
+            pairedToken: WETH,
+            tickIfToken0IsClanker: DEFAULT_TICK,
+            tickSpacing: DEFAULT_TICK_SPACING,
+            poolData: abi.encode(uint256(10000), uint256(10000)) // 1% fees
+        });
+        
+        // Locker config
+        cfg.lockerConfig = _buildLockerConfig(l.creator);
+        
+        // MEV config
+        cfg.mevModuleConfig = IClanker.MevModuleConfig({
+            mevModule: MEV_MODULE_V2,
+            mevModuleData: abi.encode(uint256(666777), uint256(41673), uint256(15))
+        });
+        
+        // DevBuy extension
+        cfg.extensionConfigs = _buildExtensions(ethAmount);
+        
+        return IClanker(CLANKER).deployToken{value: ethAmount}(cfg);
+    }
+    
+    function _buildLockerConfig(address creator) internal pure returns (IClanker.LockerConfig memory) {
+        address[] memory admins = new address[](1);
+        admins[0] = creator;
+        
+        address[] memory recipients = new address[](1);
+        recipients[0] = creator;
+        
+        uint16[] memory bps = new uint16[](1);
+        bps[0] = 10000;
+        
+        int24[] memory tickLower = new int24[](2);
+        tickLower[0] = DEFAULT_TICK;
+        tickLower[1] = -172800;
+        
+        int24[] memory tickUpper = new int24[](2);
+        tickUpper[0] = -172800;
+        tickUpper[1] = 887200;
+        
+        uint16[] memory posBps = new uint16[](2);
+        posBps[0] = 9500;
+        posBps[1] = 500;
+        
+        return IClanker.LockerConfig({
+            locker: LOCKER,
+            rewardAdmins: admins,
+            rewardRecipients: recipients,
+            rewardBps: bps,
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            positionBps: posBps,
+            lockerData: abi.encode(uint8(0))
+        });
+    }
+    
+    function _buildExtensions(uint256 ethAmount) internal view returns (IClanker.ExtensionConfig[] memory) {
+        IClanker.ExtensionConfig[] memory exts = new IClanker.ExtensionConfig[](1);
+        
+        // DevBuy data - simplified for WETH pair
+        exts[0] = IClanker.ExtensionConfig({
+            extension: DEVBUY,
+            msgValue: ethAmount,
+            extensionBps: 0,
+            extensionData: abi.encode(
+                address(0), address(0), uint24(0), int24(0), address(0), // null poolKey
+                uint256(0), // amountOutMin
+                address(this) // recipient
+            )
+        });
+        
+        return exts;
+    }
+    
     function claim(uint256 launchId) external {
         Launch storage l = launches[launchId];
         require(l.status == Status.Launched, "not launched");
-        
         acp.distribute(l.poolId, l.token);
     }
     
-    /// @notice Withdraw if funding expired
     function withdraw(uint256 launchId) external {
         Launch storage l = launches[launchId];
-        require(l.status == Status.Funding, "not funding");
-        require(block.timestamp > l.deadline, "not expired");
-        
+        require(l.status == Status.Funding && block.timestamp > l.deadline, "cannot");
         l.status = Status.Expired;
-        acp.distribute(l.poolId, address(0)); // Return ETH
+        acp.distribute(l.poolId, address(0));
     }
     
-    // ============ Views ============
-    
     function getLaunchInfo(uint256 launchId) external view returns (
-        string memory name,
-        string memory symbol,
-        uint256 threshold,
-        uint256 deadline,
-        address token,
-        address lpPool,
-        Status status,
-        uint256 totalContributed,
-        uint256 contributorCount
+        string memory name, string memory symbol, uint256 threshold,
+        uint256 deadline, address token, Status status,
+        uint256 totalContributed, uint256 contributorCount
     ) {
         Launch storage l = launches[launchId];
         (,,uint256 total, uint256 numContributors) = acp.getPoolInfo(l.poolId);
-        return (
-            l.name, l.symbol, l.threshold, l.deadline,
-            l.token, l.lpPool, l.status,
-            total, numContributors
-        );
+        return (l.name, l.symbol, l.threshold, l.deadline, l.token, l.status, total, numContributors);
     }
     
     function getContribution(uint256 launchId, address contributor) external view returns (uint256) {
         return acp.getContribution(launches[launchId].poolId, contributor);
-    }
-    
-    function getContributors(uint256 launchId) external view returns (address[] memory) {
-        return acp.getContributors(launches[launchId].poolId);
     }
     
     function count() external view returns (uint256) {
