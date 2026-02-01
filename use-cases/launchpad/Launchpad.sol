@@ -8,7 +8,16 @@ import "../../contracts/ACP.sol";
 /**
  * @title Launchpad
  * @notice Collective token launches via Clanker v4.
+ * 
+ * LP FEES: All trading fees from the Uniswap V4 pool go to contributors,
+ * not just the creator. Anyone can call claimFees() to distribute accumulated fees.
  */
+
+/// @notice Clanker Fee Locker - claims accumulated LP fees
+interface IClankerFeeLocker {
+    function claim(address rewardRecipient, address token) external;
+    function availableFees(address rewardRecipient, address token) external view returns (uint256, uint256);
+}
 
 interface IClanker {
     struct TokenConfig {
@@ -74,6 +83,7 @@ contract Launchpad {
     address public constant LOCKER = 0x63D2DfEA64b3433F4071A98665bcD7Ca14d93496;
     address public constant MEV_MODULE_V2 = 0xebB25BB797D82CB78E1bc70406b13233c0854413;
     address public constant DEVBUY = 0x1331f0788F9c08C8F38D52c7a1152250A9dE00be;
+    address public constant FEE_LOCKER = 0xF3622742b1E446D92e45E22923Ef11C2fcD55D68;
     
     int24 public constant DEFAULT_TICK = -230400;
     int24 public constant DEFAULT_TICK_SPACING = 200;
@@ -201,12 +211,12 @@ contract Launchpad {
         return IClanker(CLANKER).deployToken{value: ethAmount}(cfg);
     }
     
-    function _buildLockerConfig(address creator) internal pure returns (IClanker.LockerConfig memory) {
+    function _buildLockerConfig(address creator) internal view returns (IClanker.LockerConfig memory) {
         address[] memory admins = new address[](1);
-        admins[0] = creator;
+        admins[0] = creator;  // Creator can change recipient later if needed
         
         address[] memory recipients = new address[](1);
-        recipients[0] = creator;
+        recipients[0] = address(this);  // Launchpad receives fees → distributes to all
         
         uint16[] memory bps = new uint16[](1);
         bps[0] = 10000;
@@ -264,6 +274,38 @@ contract Launchpad {
         require(l.status == Status.Funding && block.timestamp > l.deadline, "cannot");
         l.status = Status.Expired;
         acp.distribute(l.poolId, address(0));
+    }
+    
+    /// @notice Claim accumulated LP fees and distribute to contributors
+    /// @dev Anyone can call this - fees go to all contributors pro-rata
+    function claimFees(uint256 launchId) external {
+        Launch storage l = launches[launchId];
+        require(l.status == Status.Launched, "not launched");
+        require(l.token != address(0), "no token");
+        
+        // Claim fees from Clanker FeeLocker (this contract is the reward recipient)
+        IClankerFeeLocker(FEE_LOCKER).claim(address(this), l.token);
+        
+        // Distribute any WETH fees received
+        uint256 wethBalance = IERC20(WETH).balanceOf(address(this));
+        if (wethBalance > 0) {
+            IERC20(WETH).safeTransfer(address(acp), wethBalance);
+            acp.distribute(l.poolId, WETH);
+        }
+        
+        // Distribute any token fees received
+        uint256 tokenBalance = IERC20(l.token).balanceOf(address(this));
+        if (tokenBalance > 0) {
+            IERC20(l.token).safeTransfer(address(acp), tokenBalance);
+            acp.distribute(l.poolId, l.token);
+        }
+    }
+    
+    /// @notice Check available fees for a launch
+    function availableFees(uint256 launchId) external view returns (uint256 wethFees, uint256 tokenFees) {
+        Launch storage l = launches[launchId];
+        if (l.status != Status.Launched || l.token == address(0)) return (0, 0);
+        return IClankerFeeLocker(FEE_LOCKER).availableFees(address(this), l.token);
     }
     
     function getLaunchInfo(uint256 launchId) external view returns (
