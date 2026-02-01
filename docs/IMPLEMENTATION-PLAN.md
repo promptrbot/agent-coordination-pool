@@ -1,152 +1,98 @@
 # Implementation Plan - Final
 
-## Scope for Hackathon
+## Status: Ready for Testing ✅
 
-### ✅ Definitely Shipping
-1. **ACP** - Core pool primitive (done)
-2. **Alpha** - Collective trading via Aerodrome
+### ACP (Core) - ✅ Complete
+- ETH/ERC-20 pools
+- Contribution tracking
+- Controller pattern (wrapper controls execution)
+- Balance tracking per pool
+- Distribute function for pro-rata payouts
 
-### ⚠️ Simplified Version
-3. **Launchpad** - Simple token launch (not Clanker)
+### Alpha (Trading) - ✅ Complete
+- Uses Aerodrome SlipStream (tickSpacing, not fee)
+- ETH → WETH → swap → hold → swap back → distribute
+- Hardcoded Base mainnet addresses
 
-### ❌ Post-Hackathon
-4. **NFTFlip** - Needs Seaport order construction
-5. **Clanker Integration** - Too complex for 72h
+### Launchpad (Token Launches) - ✅ Complete
+- **Real Clanker v4 integration**
+- Uses devBuy extension to convert raised ETH to tokens
+- Standard meme positions (95%/5% LP split)
+- 1% static fees
+- MEV protection enabled
+- All LP rewards go to token creator
 
 ---
 
-## Verified Contract Addresses (Base Mainnet)
+## Verified Addresses (Base Mainnet)
 
+### Clanker v4
 ```solidity
-// Core
+address constant CLANKER = 0xE85A59c628F7d27878ACeB4bf3b35733630083a9;
+address constant LOCKER = 0x63D2DfEA64b3433F4071A98665bcD7Ca14d93496;
+address constant FEE_STATIC_HOOK_V2 = 0xb429d62f8f3bFFb98CdB9569533eA23bF0Ba28CC;
+address constant MEV_MODULE_V2 = 0xebB25BB797D82CB78E1bc70406b13233c0854413;
+address constant DEVBUY = 0x1331f0788F9c08C8F38D52c7a1152250A9dE00be;
+```
+
+### Aerodrome SlipStream
+```solidity
+address constant AERODROME_ROUTER = 0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5;
+```
+
+### Base
+```solidity
 address constant WETH = 0x4200000000000000000000000000000000000006;
-
-// Aerodrome SlipStream (Uniswap V3 style)
-address constant AERODROME_SWAP_ROUTER = 0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5;
-address constant AERODROME_QUOTER = 0x254cF9E1E6e233aa1AC962CB9B05b2cfeaAe15b0;
-
-// Aerodrome V2 (Velodrome style) 
-address constant AERODROME_ROUTER = 0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43;
-address constant AERODROME_FACTORY = 0x420DD381b31aEf6683db6B902084cB0FFECe40Da;
-
-// Common tick spacings for SlipStream
-int24 constant TICK_SPACING_STABLE = 1;    // 0.01%
-int24 constant TICK_SPACING_LOW = 50;      // 0.5%
-int24 constant TICK_SPACING_MEDIUM = 100;  // 1%
-int24 constant TICK_SPACING_HIGH = 200;    // 2%
 ```
 
 ---
 
-## Alpha Contract - Updated Design
+## Clanker Integration Details
 
-Uses Aerodrome SlipStream for swaps.
-
-```solidity
-interface IAerodromeRouter {
-    struct ExactInputSingleParams {
-        address tokenIn;
-        address tokenOut;
-        int24 tickSpacing;
-        address recipient;
-        uint256 deadline;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-        uint160 sqrtPriceLimitX96;
-    }
-    
-    function exactInputSingle(ExactInputSingleParams calldata) 
-        external payable returns (uint256 amountOut);
-}
+### DeploymentConfig Structure
 ```
+tokenConfig:
+  - tokenAdmin: launch creator
+  - name, symbol, image: from launch params
+  - context: '{"interface":"ACP"}'
+  - originatingChainId: 8453 (Base)
 
-**Trade creation includes tickSpacing** (not fee):
-```solidity
-function create(
-    address tokenIn,
-    address tokenOut,
-    int24 tickSpacing,  // 1, 50, 100, or 200
-    uint256 threshold,
-    uint256 buyTime,
-    uint256 sellTime,
-    uint256 deadline
-) external returns (uint256 tradeId);
+poolConfig:
+  - hook: FeeStaticHookV2 (1% fees)
+  - pairedToken: WETH
+  - tickIfToken0IsClanker: -230400
+  - tickSpacing: 200
+
+lockerConfig:
+  - locker: ClankerLpLockerFeeConversion
+  - positions: Standard meme (95% near price, 5% wide)
+  - rewards: 100% to creator
+
+mevModuleConfig:
+  - mevModule: ClankerSniperAuctionV2
+  - startingFee: 66.6777%
+  - endingFee: 4.1673%
+  - decay: 15 seconds
+
+extensionConfigs:
+  - devBuy: all raised ETH converted to tokens
 ```
 
 ---
 
-## Launchpad - Simplified Design
+## Next Steps
 
-**NOT using Clanker** - too complex. Instead:
-
-1. Deploy standard ERC20 (OpenZeppelin)
-2. Create Aerodrome V2 pool
-3. Add liquidity
-4. Distribute remaining tokens to contributors
-
-```solidity
-function launch(uint256 launchId) external {
-    // 1. Deploy token
-    ERC20 token = new SimpleToken(name, symbol, SUPPLY);
-    
-    // 2. Create pool via Aerodrome V2 factory
-    address pool = IAerodromeFactory(FACTORY).createPool(
-        address(token), 
-        WETH, 
-        false  // volatile pair
-    );
-    
-    // 3. Add liquidity
-    // (requires router.addLiquidity call)
-    
-    // 4. Send tokens to ACP for distribution
-    token.transfer(address(acp), distributionAmount);
-}
-```
+1. **Deploy to Base Sepolia** - Test with fake tokens
+2. **Test full flows:**
+   - Alpha: create → join → buy → sell → claim
+   - Launchpad: create → join → launch → claim
+3. **Deploy to Base Mainnet**
+4. **Build frontend**
 
 ---
 
-## Testing Strategy
+## Research Sources
 
-### Base Sepolia (testnet)
-- Deploy ACP
-- Deploy Alpha with mock tokens
-- Test full flow: create → join → buy → sell → claim
-
-### Then Base Mainnet
-- Deploy with real WETH
-- Small amounts first
-
----
-
-## Files to Update
-
-1. `contracts/ACP.sol` - ✅ Good as is
-2. `use-cases/alpha/Alpha.sol` - Update for Aerodrome tickSpacing
-3. `use-cases/launchpad/Launchpad.sol` - Rewrite for simple token + Aerodrome V2
-
----
-
-## Realistic Timeline
-
-| Task | Time |
-|------|------|
-| Update Alpha for Aerodrome | 2h |
-| Rewrite Launchpad (simple) | 3h |
-| Deploy to testnet | 1h |
-| Test + fix bugs | 2h |
-| Deploy to mainnet | 1h |
-| Frontend basics | 4h |
-| **Total** | ~13h |
-
----
-
-## Key Decisions
-
-1. **Skip Clanker** - Their v4 interface is too complex (many required params, allowlisted hooks/lockers). Would need days to get right.
-
-2. **Skip NFTFlip for now** - Seaport order construction is complex. Can add post-hackathon.
-
-3. **Use Aerodrome V2 for Launchpad** - Simpler pool creation than SlipStream CL.
-
-4. **Use Aerodrome SlipStream for Alpha** - Better price execution for trading.
+- Clanker SDK: https://github.com/clanker-devco/clanker-sdk
+- Clanker Docs: https://clanker.gitbook.io/clanker-documentation
+- Aerodrome SlipStream: https://basescan.org/address/0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5
