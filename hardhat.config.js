@@ -1,7 +1,7 @@
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
+require("@nomicfoundation/hardhat-toolbox");
 
-const config: HardhatUserConfig = {
+/** @type import('hardhat/config').HardhatUserConfig */
+module.exports = {
   solidity: {
     version: "0.8.20",
     settings: {
@@ -19,7 +19,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      chainId: 8453, // Base chainId for testing
+      chainId: 8453,
       allowUnlimitedContractSize: true,
     },
     baseSepolia: {
@@ -38,8 +38,6 @@ const config: HardhatUserConfig = {
     currency: "USD",
   },
   mocha: {
-    timeout: 120000, // 2 minutes for complex tests
+    timeout: 120000,
   },
 };
-
-export default config;

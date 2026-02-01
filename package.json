@@ -13,7 +13,7 @@
     "coverage": "hardhat coverage",
     "lint": "solhint 'contracts/**/*.sol'",
     "clean": "hardhat clean",
-    "prepare": "hardhat compile",
+    
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network baseSepolia",
     "deploy:base": "hardhat run scripts/deploy.ts --network base"
   },
