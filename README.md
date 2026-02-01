@@ -16,8 +16,8 @@ No governance tokens. No yes/no voting UI. You vote by putting money in. If thre
 
 ## Architecture
 
-### ACP v2 - The Primitive
-[`contracts/ACP2.sol`](./contracts/ACP2.sol)
+### ACP - The Primitive
+[`contracts/ACP.sol`](./contracts/ACP.sol)
 
 Minimal pool contract (~150 lines):
 - Create pools (ETH or ERC-20)
@@ -54,8 +54,7 @@ If threshold isn't met before deadline → contributors withdraw. No execution, 
 
 | Contract | Address |
 |----------|---------|
-| ACP v1 | `0x3813396A6Ab39d950ed380DEAC27AFbB464cC512` |
-| ACP v2 | *pending deployment* |
+| ACP | *pending deployment* |
 | NFTFlip | *pending deployment* |
 | Alpha | *pending deployment* |
 | Launchpad | *pending deployment* |

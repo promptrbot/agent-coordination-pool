@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../../ACP2.sol";
+import "../../contracts/ACP.sol";
 
 /**
  * @title Launchpad
@@ -33,7 +33,7 @@ interface IClanker {
 contract Launchpad {
     using SafeERC20 for IERC20;
     
-    ACP2 public immutable acp;
+    ACP public immutable acp;
     address public immutable clanker;
     
     enum Status { Funding, Launched, Expired }
@@ -64,7 +64,7 @@ contract Launchpad {
     event Claimed(uint256 indexed launchId, address indexed contributor, uint256 amount);
     
     constructor(address _acp, address _clanker) {
-        acp = ACP2(payable(_acp));
+        acp = ACP(payable(_acp));
         clanker = _clanker;
     }
     

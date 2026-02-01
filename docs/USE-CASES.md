@@ -94,7 +94,7 @@ No governance tokens. No yes/no voting UI. You vote by putting money in. If thre
 
 ---
 
-## ACP v2 Requirements
+## ACP Requirements
 
 All use cases need these primitives from ACP:
 
