@@ -56,34 +56,25 @@ contract ACP {
         emit PoolCreated(poolId, msg.sender, token);
     }
     
-    /// @notice Contribute to a pool. Controller tracks contributor.
+    /// @notice Contribute ETH to a pool. Controller only.
     /// @param poolId The pool to contribute to
     /// @param contributor Address to credit (allows wrapper to attribute correctly)
-    function contribute(uint256 poolId, address contributor) external payable {
+    function contribute(uint256 poolId, address contributor) external payable onlyController(poolId) {
         Pool storage p = pools[poolId];
-        uint256 amount;
+        require(p.token == address(0), "not ETH pool");
+        require(msg.value > 0, "no value");
         
-        if (p.token == address(0)) {
-            // ETH pool
-            amount = msg.value;
-            if (amount == 0) revert InvalidAmount();
-        } else {
-            // ERC-20 pool
-            amount = msg.value; // Passed as param via wrapper
-            revert("Use contributeToken for ERC-20");
-        }
-        
-        _recordContribution(poolId, contributor, amount);
+        _recordContribution(poolId, contributor, msg.value);
     }
     
-    /// @notice Contribute ERC-20 to a pool
+    /// @notice Contribute ERC-20 to a pool. Controller only.
     /// @param poolId The pool to contribute to
     /// @param contributor Address to credit
     /// @param amount Amount of tokens to contribute
-    function contributeToken(uint256 poolId, address contributor, uint256 amount) external {
+    function contributeToken(uint256 poolId, address contributor, uint256 amount) external onlyController(poolId) {
         Pool storage p = pools[poolId];
-        if (p.token == address(0)) revert("Use contribute for ETH");
-        if (amount == 0) revert InvalidAmount();
+        require(p.token != address(0), "not token pool");
+        require(amount > 0, "no value");
         
         IERC20(p.token).safeTransferFrom(msg.sender, address(this), amount);
         _recordContribution(poolId, contributor, amount);
@@ -194,6 +185,10 @@ contract ACP {
     }
     
     // ============ Views ============
+    
+    function poolCount() external view returns (uint256) {
+        return nextPoolId;
+    }
     
     function getContributors(uint256 poolId) external view returns (address[] memory) {
         return pools[poolId].contributors;
