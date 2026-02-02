@@ -848,17 +848,20 @@ contract ACPTest is Test {
         assertEq(acp.getContribution(poolId, address(0)), 1 ether);
     }
     
-    function test_ZeroAddressContributor_DistributeFails() public {
+    function test_ZeroAddressContributor_DistributeSucceeds() public {
+        // Note: In EVM, address(0) can receive ETH - it's just a precompile address
         vm.prank(controller);
         uint256 poolId = acp.createPool(address(0));
         
         vm.prank(controller);
         acp.contribute{value: 1 ether}(poolId, address(0));
         
-        // Distribute to zero address will fail (can't send ETH to 0x0)
+        // Distribution to address(0) actually succeeds in EVM
         vm.prank(controller);
-        vm.expectRevert(ACP.TransferFailed.selector);
         acp.distribute(poolId, address(0));
+        
+        // Pool balance is now 0
+        assertEq(acp.getPoolBalance(poolId), 0);
     }
     
     // ============================================================
