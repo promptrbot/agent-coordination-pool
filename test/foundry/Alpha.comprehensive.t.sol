@@ -462,13 +462,16 @@ contract AlphaComprehensiveTest is Test {
         
         (
             uint256 poolId,
-            address tokenOut,
             uint256 threshold,
             uint256 buyTime,
             uint256 sellTime,
             uint256 deadline,
-            int24 tickSpacing,
             uint256 tokensHeld,
+            uint256 expectedBuyOutput,
+            uint256 expectedSellOutput,
+            uint256 maxSlippageBps,
+            address tokenOut,
+            int24 tickSpacing,
             AlphaTestable.Status status
         ) = alpha.trades(0);
         
@@ -480,6 +483,9 @@ contract AlphaComprehensiveTest is Test {
         assertLe(deadline, buyTime);
         assertEq(tickSpacing, 200);
         assertEq(tokensHeld, 0);
+        assertEq(expectedBuyOutput, 0);
+        assertEq(expectedSellOutput, 0);
+        assertEq(maxSlippageBps, 100); // Default 1%
         assertEq(uint256(status), 0);
     }
     

@@ -276,8 +276,8 @@ contract AlphaTestable {
         uint256 contributorCount
     ) {
         Trade storage t = trades[tradeId];
-        (,,uint256 total, uint256 count) = acp.getPoolInfo(t.poolId);
-        return (t.tokenOut, t.threshold, t.buyTime, t.sellTime, t.deadline, t.tokensHeld, t.status, total, count);
+        (,,uint256 total, uint256 numContributors) = acp.getPoolInfo(t.poolId);
+        return (t.tokenOut, t.threshold, t.buyTime, t.sellTime, t.deadline, t.tokensHeld, t.status, total, numContributors);
     }
     
     function getSlippageInfo(uint256 tradeId) external view returns (
