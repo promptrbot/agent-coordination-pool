@@ -784,20 +784,20 @@ contract ACPTest is Test {
         vm.prank(controller);
         uint256 poolId = acp.createPool(address(0));
         
-        ReentrantAttacker attacker = new ReentrantAttacker(address(acp));
-        attacker.setPoolId(poolId);
+        ReentrantAttacker reentrancyAttacker = new ReentrantAttacker(payable(address(acp)));
+        reentrancyAttacker.setPoolId(poolId);
         
         vm.startPrank(controller);
-        acp.contribute{value: 1 ether}(poolId, address(attacker));
+        acp.contribute{value: 1 ether}(poolId, address(reentrancyAttacker));
         acp.contribute{value: 1 ether}(poolId, alice);
         vm.stopPrank();
         
-        // Distribute - attacker will try to re-enter
+        // Distribute - reentrancyAttacker will try to re-enter
         vm.prank(controller);
         acp.distribute(poolId, address(0));
         
         // Attacker should only get their fair share (1 ether), not more
-        assertEq(address(attacker).balance, 1 ether);
+        assertEq(address(reentrancyAttacker).balance, 1 ether);
         assertEq(alice.balance, 1001 ether); // 1000 initial + 1 distributed
     }
     
@@ -1147,7 +1147,7 @@ contract ReentrantAttacker {
     uint256 public poolId;
     uint256 public attackCount;
     
-    constructor(address _acp) {
+    constructor(address payable _acp) {
         acp = ACP(_acp);
     }
     
