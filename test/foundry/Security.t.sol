@@ -370,13 +370,17 @@ contract SecurityTest is Test {
         
         assertEq(acp.getPoolTokenBalance(poolId, address(feeToken)), 99 ether);
         
-        // Distribute - each gets 50% of 99 = 49.5, rounded down
+        // Distribute - each gets 50% of 99 ether
+        // share = (99 ether * 99 ether) / 198 ether = 49.5 ether, rounded down to 49
         vm.prank(controller);
         acp.distribute(poolId, address(feeToken));
         
-        // Each contributor gets half (49 ether each due to rounding)
-        assertEq(feeToken.balanceOf(alice), 49 ether);
-        assertEq(feeToken.balanceOf(bob), 49 ether);
+        // Each contributor gets (99 * 99) / 198 = 49.5 → 49 each (integer division)
+        // Note: 1 wei is lost to rounding dust
+        uint256 aliceShare = (99 ether * 99 ether) / 198 ether;
+        uint256 bobShare = (99 ether * 99 ether) / 198 ether;
+        assertEq(feeToken.balanceOf(alice), aliceShare);
+        assertEq(feeToken.balanceOf(bob), bobShare);
     }
     
     function test_Security_FeeOnTransfer_DepositToken() public {

@@ -903,26 +903,18 @@ contract ACPTest is Test {
         vm.prank(controller);
         uint256 poolId = acp.createPool(address(token));
         
-        token.mint(controller, 100 ether);
+        token.mint(controller, 200 ether);  // Mint enough for contribution + deposit
         
         vm.startPrank(controller);
-        token.approve(address(acp), 100 ether);
+        token.approve(address(acp), 200 ether);
         acp.contributeToken(poolId, alice, 40 ether);  // 40%
         acp.contributeToken(poolId, bob, 60 ether);    // 60%
         
-        // Deposit tokens to pool for distribution
-        token.approve(address(acp), 100 ether);
+        // Deposit tokens to pool for distribution (100 ether left after contributions)
         acp.depositToken(poolId, address(token), 100 ether);
         vm.stopPrank();
         
-        // Mint more to controller for deposit
-        token.mint(controller, 100 ether);
-        vm.startPrank(controller);
-        token.approve(address(acp), 100 ether);
-        acp.depositToken(poolId, address(token), 100 ether);
-        vm.stopPrank();
-        
-        // Distribute the deposited tokens (100 ether)
+        // Distribute the deposited 100 tokens
         vm.prank(controller);
         acp.distribute(poolId, address(token));
         
