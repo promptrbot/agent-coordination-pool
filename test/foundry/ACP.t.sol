@@ -746,6 +746,300 @@ contract ACPTest is Test {
     }
     
     // ============================================================
+    //                    EXECUTE ERC20
+    // ============================================================
+    
+    function test_Execute_ERC20_Allowance() public {
+        vm.prank(controller);
+        uint256 poolId = acp.createPool(address(token));
+        
+        token.mint(controller, 100 ether);
+        
+        vm.startPrank(controller);
+        token.approve(address(acp), 100 ether);
+        acp.contributeToken(poolId, alice, 100 ether);
+        vm.stopPrank();
+        
+        // Deploy a token receiver
+        TokenReceiver receiver = new TokenReceiver();
+        
+        // Execute should set allowance for target
+        vm.prank(controller);
+        acp.execute(
+            poolId, 
+            address(receiver), 
+            50 ether, 
+            abi.encodeWithSignature("onTokenReceived(address,uint256)", address(token), 50 ether)
+        );
+        
+        // Token receiver got the tokens and sent them back
+        assertEq(token.balanceOf(address(receiver)), 0);
+    }
+    
+    // ============================================================
+    //                    REENTRANCY TESTS
+    // ============================================================
+    
+    function test_Reentrancy_Distribute() public {
+        vm.prank(controller);
+        uint256 poolId = acp.createPool(address(0));
+        
+        ReentrantAttacker attacker = new ReentrantAttacker(address(acp));
+        attacker.setPoolId(poolId);
+        
+        vm.startPrank(controller);
+        acp.contribute{value: 1 ether}(poolId, address(attacker));
+        acp.contribute{value: 1 ether}(poolId, alice);
+        vm.stopPrank();
+        
+        // Distribute - attacker will try to re-enter
+        vm.prank(controller);
+        acp.distribute(poolId, address(0));
+        
+        // Attacker should only get their fair share (1 ether), not more
+        assertEq(address(attacker).balance, 1 ether);
+        assertEq(alice.balance, 1001 ether); // 1000 initial + 1 distributed
+    }
+    
+    // ============================================================
+    //                    INVALID POOL IDS
+    // ============================================================
+    
+    function test_InvalidPoolId_Contribute() public {
+        vm.prank(controller);
+        vm.expectRevert(ACP.NotController.selector);
+        acp.contribute{value: 1 ether}(999, alice);
+    }
+    
+    function test_InvalidPoolId_Execute() public {
+        vm.prank(controller);
+        vm.expectRevert(ACP.NotController.selector);
+        acp.execute(999, bob, 1 ether, "");
+    }
+    
+    function test_InvalidPoolId_Distribute() public {
+        vm.prank(controller);
+        vm.expectRevert(ACP.NotController.selector);
+        acp.distribute(999, address(0));
+    }
+    
+    function test_InvalidPoolId_GetInfo() public view {
+        // Should return zeros, not revert
+        (address poolToken, address poolController, uint256 total, uint256 count) = acp.getPoolInfo(999);
+        assertEq(poolToken, address(0));
+        assertEq(poolController, address(0));
+        assertEq(total, 0);
+        assertEq(count, 0);
+    }
+    
+    // ============================================================
+    //                    ZERO ADDRESS
+    // ============================================================
+    
+    function test_ZeroAddressContributor() public {
+        vm.prank(controller);
+        uint256 poolId = acp.createPool(address(0));
+        
+        // Contributing to zero address should work (it's just an address)
+        vm.prank(controller);
+        acp.contribute{value: 1 ether}(poolId, address(0));
+        
+        assertEq(acp.getContribution(poolId, address(0)), 1 ether);
+    }
+    
+    function test_ZeroAddressContributor_DistributeFails() public {
+        vm.prank(controller);
+        uint256 poolId = acp.createPool(address(0));
+        
+        vm.prank(controller);
+        acp.contribute{value: 1 ether}(poolId, address(0));
+        
+        // Distribute to zero address will fail (can't send ETH to 0x0)
+        vm.prank(controller);
+        vm.expectRevert(ACP.TransferFailed.selector);
+        acp.distribute(poolId, address(0));
+    }
+    
+    // ============================================================
+    //                    RECEIVE FALLBACK
+    // ============================================================
+    
+    function test_ReceiveFallback() public {
+        // Direct ETH send to ACP should work
+        (bool ok,) = address(acp).call{value: 1 ether}("");
+        assertTrue(ok);
+        assertEq(address(acp).balance, 1 ether);
+    }
+    
+    function test_ReceiveFallback_DoesNotAffectPools() public {
+        vm.prank(controller);
+        uint256 poolId = acp.createPool(address(0));
+        
+        vm.prank(controller);
+        acp.contribute{value: 5 ether}(poolId, alice);
+        
+        // Direct ETH send
+        (bool ok,) = address(acp).call{value: 1 ether}("");
+        assertTrue(ok);
+        
+        // Pool balance unchanged
+        assertEq(acp.getPoolBalance(poolId), 5 ether);
+        
+        // Contract has more but pool tracks separately
+        assertEq(address(acp).balance, 6 ether);
+    }
+    
+    // ============================================================
+    //                    ERC20 DISTRIBUTION
+    // ============================================================
+    
+    function test_DistributeERC20_FromTokenPool() public {
+        vm.prank(controller);
+        uint256 poolId = acp.createPool(address(token));
+        
+        token.mint(controller, 100 ether);
+        
+        vm.startPrank(controller);
+        token.approve(address(acp), 100 ether);
+        acp.contributeToken(poolId, alice, 40 ether);  // 40%
+        acp.contributeToken(poolId, bob, 60 ether);    // 60%
+        vm.stopPrank();
+        
+        // Distribute the same token
+        vm.prank(controller);
+        acp.distribute(poolId, address(token));
+        
+        assertEq(token.balanceOf(alice), 40 ether);
+        assertEq(token.balanceOf(bob), 60 ether);
+    }
+    
+    function test_DistributeERC20_DifferentToken() public {
+        MockERC20 rewardToken = new MockERC20("Reward", "RWD", 18);
+        
+        vm.prank(controller);
+        uint256 poolId = acp.createPool(address(0));
+        
+        vm.startPrank(controller);
+        acp.contribute{value: 1 ether}(poolId, alice);  // 50%
+        acp.contribute{value: 1 ether}(poolId, bob);    // 50%
+        vm.stopPrank();
+        
+        // Mint reward tokens to ACP
+        rewardToken.mint(address(acp), 1000 ether);
+        
+        // Distribute reward token
+        vm.prank(controller);
+        acp.distribute(poolId, address(rewardToken));
+        
+        assertEq(rewardToken.balanceOf(alice), 500 ether);
+        assertEq(rewardToken.balanceOf(bob), 500 ether);
+    }
+    
+    // ============================================================
+    //                    GAS LIMITS (100+ CONTRIBUTORS)
+    // ============================================================
+    
+    function test_ManyContributors_100() public {
+        vm.prank(controller);
+        uint256 poolId = acp.createPool(address(0));
+        
+        // 100 contributors
+        for (uint i = 100; i < 200; i++) {
+            address contributor = address(uint160(i));
+            vm.prank(controller);
+            acp.contribute{value: 0.1 ether}(poolId, contributor);
+        }
+        
+        (,,, uint256 count) = acp.getPoolInfo(poolId);
+        assertEq(count, 100);
+        
+        uint256 gasBefore = gasleft();
+        vm.prank(controller);
+        acp.distribute(poolId, address(0));
+        uint256 gasUsed = gasBefore - gasleft();
+        
+        // Should complete in reasonable gas (< 5M)
+        assertLt(gasUsed, 5_000_000);
+    }
+    
+    function test_ManyContributors_200() public {
+        vm.prank(controller);
+        uint256 poolId = acp.createPool(address(0));
+        
+        // 200 contributors
+        for (uint i = 100; i < 300; i++) {
+            address contributor = address(uint160(i));
+            vm.prank(controller);
+            acp.contribute{value: 0.05 ether}(poolId, contributor);
+        }
+        
+        (,,, uint256 count) = acp.getPoolInfo(poolId);
+        assertEq(count, 200);
+        
+        uint256 gasBefore = gasleft();
+        vm.prank(controller);
+        acp.distribute(poolId, address(0));
+        uint256 gasUsed = gasBefore - gasleft();
+        
+        // Should complete (< 10M)
+        assertLt(gasUsed, 10_000_000);
+    }
+    
+    // ============================================================
+    //                    FEE-ON-TRANSFER TOKENS
+    // ============================================================
+    
+    function test_FeeOnTransferToken() public {
+        FeeOnTransferToken feeToken = new FeeOnTransferToken();
+        feeToken.mint(controller, 100 ether);
+        
+        vm.prank(controller);
+        uint256 poolId = acp.createPool(address(feeToken));
+        
+        vm.startPrank(controller);
+        feeToken.approve(address(acp), 100 ether);
+        
+        // Contribute 100, but only 99 arrives due to 1% fee
+        acp.contributeToken(poolId, alice, 100 ether);
+        vm.stopPrank();
+        
+        // ACP received less than contributed amount
+        assertEq(feeToken.balanceOf(address(acp)), 99 ether);
+        
+        // But contribution is recorded as 100
+        assertEq(acp.getContribution(poolId, alice), 100 ether);
+        
+        // This is a known limitation - fee tokens cause accounting mismatch
+    }
+    
+    // ============================================================
+    //                    COMPLEX EXECUTE RETURNS
+    // ============================================================
+    
+    function test_Execute_ComplexReturn() public {
+        vm.prank(controller);
+        uint256 poolId = acp.createPool(address(0));
+        
+        vm.prank(controller);
+        acp.contribute{value: 10 ether}(poolId, alice);
+        
+        ComplexReturnContract complexContract = new ComplexReturnContract();
+        
+        vm.prank(controller);
+        bytes memory result = acp.execute(
+            poolId, 
+            address(complexContract), 
+            1 ether, 
+            abi.encodeWithSignature("complexReturn(uint256)", 42)
+        );
+        
+        (uint256 a, string memory b, bool c) = abi.decode(result, (uint256, string, bool));
+        assertEq(a, 42);
+        assertEq(b, "hello");
+        assertTrue(c);
+    }
+    
+    // ============================================================
     //                      FUZZ TESTS
     // ============================================================
     
@@ -845,5 +1139,81 @@ contract RevertingReceiver {
 contract RejectingReceiver {
     receive() external payable {
         revert();
+    }
+}
+
+contract ReentrantAttacker {
+    ACP public acp;
+    uint256 public poolId;
+    uint256 public attackCount;
+    
+    constructor(address _acp) {
+        acp = ACP(_acp);
+    }
+    
+    function setPoolId(uint256 _poolId) external {
+        poolId = _poolId;
+    }
+    
+    receive() external payable {
+        if (attackCount < 3) {
+            attackCount++;
+            // Try to re-enter distribute
+            try acp.distribute(poolId, address(0)) {} catch {}
+        }
+    }
+}
+
+contract TokenReceiver {
+    mapping(address => uint256) public balances;
+    
+    function onTokenReceived(address token, uint256 amount) external {
+        balances[token] = amount;
+        IERC20(token).transfer(msg.sender, amount);
+    }
+}
+
+contract ComplexReturnContract {
+    function complexReturn(uint256 input) external payable returns (uint256, string memory, bool) {
+        return (input, "hello", true);
+    }
+}
+
+contract FeeOnTransferToken {
+    string public name = "Fee Token";
+    string public symbol = "FEE";
+    uint8 public decimals = 18;
+    uint256 public totalSupply;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+    
+    uint256 public feePercent = 1; // 1% fee
+    
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+        totalSupply += amount;
+    }
+    
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+    
+    function transfer(address to, uint256 amount) external returns (bool) {
+        return _transfer(msg.sender, to, amount);
+    }
+    
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        allowance[from][msg.sender] -= amount;
+        return _transfer(from, to, amount);
+    }
+    
+    function _transfer(address from, address to, uint256 amount) internal returns (bool) {
+        uint256 fee = amount * feePercent / 100;
+        uint256 netAmount = amount - fee;
+        balanceOf[from] -= amount;
+        balanceOf[to] += netAmount;
+        // Fee is burned
+        return true;
     }
 }
