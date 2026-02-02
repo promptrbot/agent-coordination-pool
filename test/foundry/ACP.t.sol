@@ -760,20 +760,21 @@ contract ACPTest is Test {
         acp.contributeToken(poolId, alice, 100 ether);
         vm.stopPrank();
         
-        // Deploy a token receiver
-        TokenReceiver receiver = new TokenReceiver();
+        // Deploy a token puller that uses transferFrom
+        TokenPuller puller = new TokenPuller();
         
         // Execute should set allowance for target
         vm.prank(controller);
         acp.execute(
             poolId, 
-            address(receiver), 
+            address(puller), 
             50 ether, 
-            abi.encodeWithSignature("onTokenReceived(address,uint256)", address(token), 50 ether)
+            abi.encodeWithSignature("pullTokens(address,address,uint256)", address(token), address(acp), 50 ether)
         );
         
-        // Token receiver got the tokens and sent them back
-        assertEq(token.balanceOf(address(receiver)), 0);
+        // Puller pulled the tokens using allowance
+        assertEq(token.balanceOf(address(puller)), 50 ether);
+        assertEq(token.balanceOf(address(acp)), 50 ether);
     }
     
     // ============================================================
@@ -1164,12 +1165,9 @@ contract ReentrantAttacker {
     }
 }
 
-contract TokenReceiver {
-    mapping(address => uint256) public balances;
-    
-    function onTokenReceived(address token, uint256 amount) external {
-        balances[token] = amount;
-        IERC20(token).transfer(msg.sender, amount);
+contract TokenPuller {
+    function pullTokens(address token, address from, uint256 amount) external {
+        IERC20(token).transferFrom(from, address(this), amount);
     }
 }
 
