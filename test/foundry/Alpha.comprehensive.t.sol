@@ -508,6 +508,7 @@ contract AlphaComprehensiveTest is Test {
     // ============================================================
     
     function test_Receive() public {
+        vm.deal(address(this), 10 ether);
         (bool ok,) = address(alpha).call{value: 1 ether}("");
         assertTrue(ok);
         assertEq(address(alpha).balance, 1 ether);
