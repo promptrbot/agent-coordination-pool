@@ -22,7 +22,7 @@ contract LaunchpadComprehensiveTest is Test {
     
     uint256 constant ONE_DAY = 86400;
     
-    event LaunchCreated(uint256 indexed launchId, string name, string symbol, uint256 threshold);
+    event LaunchCreated(uint256 indexed launchId, string name, string symbol, uint256 threshold, address creator);
     event Joined(uint256 indexed launchId, address indexed contributor, uint256 amount);
     event Launched(uint256 indexed launchId, address token, uint256 ethRaised);
     
@@ -74,8 +74,9 @@ contract LaunchpadComprehensiveTest is Test {
     }
     
     function test_Create_EmitsEvent() public {
+        vm.prank(creator);
         vm.expectEmit(true, false, false, true);
-        emit LaunchCreated(0, "TestToken", "TEST", 5 ether);
+        emit LaunchCreated(0, "TestToken", "TEST", 5 ether, creator);
         
         launchpad.create("TestToken", "TEST", "", 5 ether, block.timestamp + ONE_DAY);
     }

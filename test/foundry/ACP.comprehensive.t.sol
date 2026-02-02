@@ -230,7 +230,7 @@ contract ACPComprehensiveTest is Test {
     }
     
     function test_Distribute_ERC20_MultiplePoolsSameToken() public {
-        // Two pools using same token for distribution
+        // Two pools using same token for distribution - now properly isolated!
         vm.startPrank(controller);
         uint256 pool1 = acp.createPool(address(0));
         uint256 pool2 = acp.createPool(address(0));
@@ -239,20 +239,25 @@ contract ACPComprehensiveTest is Test {
         acp.contribute{value: 10 ether}(pool2, bob);
         vm.stopPrank();
         
-        // Mint tokens to ACP
-        token.mint(address(acp), 100 ether);
+        // Deposit tokens to each pool separately
+        token.mint(controller, 200 ether);
+        vm.startPrank(controller);
+        token.approve(address(acp), 200 ether);
+        acp.depositToken(pool1, address(token), 100 ether);  // 100 for pool1
+        acp.depositToken(pool2, address(token), 100 ether);  // 100 for pool2
+        vm.stopPrank();
         
-        // Distribute token from pool1 - takes entire balance!
+        // Distribute token from pool1 - only gets pool1's tokens
         vm.prank(controller);
         acp.distribute(pool1, address(token));
         
         assertEq(token.balanceOf(alice), 100 ether);
         
-        // Pool2 distribute token - nothing left
+        // Pool2 distribute token - gets pool2's tokens (properly isolated!)
         vm.prank(controller);
         acp.distribute(pool2, address(token));
         
-        assertEq(token.balanceOf(bob), 0);
+        assertEq(token.balanceOf(bob), 100 ether);  // Fixed! Was 0 before
     }
     
     // ============================================================

@@ -22,7 +22,7 @@ contract AlphaComprehensiveTest is Test {
     uint256 constant ONE_HOUR = 3600;
     uint256 constant ONE_DAY = 86400;
     
-    event TradeCreated(uint256 indexed tradeId, address tokenOut, uint256 threshold);
+    event TradeCreated(uint256 indexed tradeId, address tokenOut, uint256 threshold, uint256 maxSlippageBps);
     event Joined(uint256 indexed tradeId, address indexed contributor, uint256 amount);
     event BuyExecuted(uint256 indexed tradeId, uint256 ethSpent, uint256 tokensReceived);
     event SellExecuted(uint256 indexed tradeId, uint256 tokensSold, uint256 ethReceived);
@@ -103,7 +103,7 @@ contract AlphaComprehensiveTest is Test {
     
     function test_Create_EmitsEvent() public {
         vm.expectEmit(true, false, false, true);
-        emit TradeCreated(0, address(targetToken), 5 ether);
+        emit TradeCreated(0, address(targetToken), 5 ether, 100);  // Default 1% slippage
         
         alpha.create(
             address(targetToken),

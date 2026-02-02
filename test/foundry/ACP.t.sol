@@ -515,8 +515,12 @@ contract ACPTest is Test {
         acp.contribute{value: 4 ether}(poolId, bob);     // 80%
         vm.stopPrank();
         
-        // Mint tokens to ACP (simulating token acquisition)
-        token.mint(address(acp), 1000 ether);
+        // Mint tokens and deposit to pool via depositToken
+        token.mint(controller, 1000 ether);
+        vm.startPrank(controller);
+        token.approve(address(acp), 1000 ether);
+        acp.depositToken(poolId, address(token), 1000 ether);
+        vm.stopPrank();
         
         vm.prank(controller);
         acp.distribute(poolId, address(token));
@@ -532,7 +536,12 @@ contract ACPTest is Test {
         vm.prank(controller);
         acp.contribute{value: 5 ether}(poolId, alice);
         
-        token.mint(address(acp), 100 ether);
+        // Deposit tokens to pool
+        token.mint(controller, 100 ether);
+        vm.startPrank(controller);
+        token.approve(address(acp), 100 ether);
+        acp.depositToken(poolId, address(token), 100 ether);
+        vm.stopPrank();
         
         vm.prank(controller);
         vm.expectEmit(true, false, false, true);
@@ -900,12 +909,25 @@ contract ACPTest is Test {
         token.approve(address(acp), 100 ether);
         acp.contributeToken(poolId, alice, 40 ether);  // 40%
         acp.contributeToken(poolId, bob, 60 ether);    // 60%
+        
+        // Deposit tokens to pool for distribution
+        token.approve(address(acp), 100 ether);
+        acp.depositToken(poolId, address(token), 100 ether);
         vm.stopPrank();
         
-        // Distribute the same token
+        // Mint more to controller for deposit
+        token.mint(controller, 100 ether);
+        vm.startPrank(controller);
+        token.approve(address(acp), 100 ether);
+        acp.depositToken(poolId, address(token), 100 ether);
+        vm.stopPrank();
+        
+        // Distribute the deposited tokens (100 ether)
         vm.prank(controller);
         acp.distribute(poolId, address(token));
         
+        // Alice has 40% of contributions, gets 40 of 100 deposited = 40 ether
+        // Bob has 60% of contributions, gets 60 of 100 deposited = 60 ether
         assertEq(token.balanceOf(alice), 40 ether);
         assertEq(token.balanceOf(bob), 60 ether);
     }
@@ -921,8 +943,12 @@ contract ACPTest is Test {
         acp.contribute{value: 1 ether}(poolId, bob);    // 50%
         vm.stopPrank();
         
-        // Mint reward tokens to ACP
-        rewardToken.mint(address(acp), 1000 ether);
+        // Deposit reward tokens to pool
+        rewardToken.mint(controller, 1000 ether);
+        vm.startPrank(controller);
+        rewardToken.approve(address(acp), 1000 ether);
+        acp.depositToken(poolId, address(rewardToken), 1000 ether);
+        vm.stopPrank();
         
         // Distribute reward token
         vm.prank(controller);
@@ -1000,13 +1026,14 @@ contract ACPTest is Test {
         acp.contributeToken(poolId, alice, 100 ether);
         vm.stopPrank();
         
-        // ACP received less than contributed amount
+        // ACP received 99 ether after fee
         assertEq(feeToken.balanceOf(address(acp)), 99 ether);
         
-        // But contribution is recorded as 100
-        assertEq(acp.getContribution(poolId, alice), 100 ether);
+        // Contribution is now correctly recorded as 99 (actual received)
+        assertEq(acp.getContribution(poolId, alice), 99 ether);
         
-        // This is a known limitation - fee tokens cause accounting mismatch
+        // Pool balance also tracks correctly
+        assertEq(acp.getPoolBalance(poolId), 99 ether);
     }
     
     // ============================================================
