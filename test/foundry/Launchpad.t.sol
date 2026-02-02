@@ -227,7 +227,7 @@ contract LaunchpadE2ETest is Test {
         launchpad.join{value: 3 ether}(launchId);
         
         // Can't launch (threshold not met)
-        vm.expectRevert("threshold not met");
+        vm.expectRevert(LaunchpadTestable.ThresholdNotMet.selector);
         launchpad.launch(launchId);
         
         // Wait for deadline
@@ -252,22 +252,22 @@ contract LaunchpadE2ETest is Test {
     // ============================================================
     
     function test_CantCreateWithEmptyName() public {
-        vm.expectRevert("empty");
+        vm.expectRevert(LaunchpadTestable.EmptyNameOrSymbol.selector);
         launchpad.create("", "SYM", "", 1 ether, block.timestamp + ONE_DAY);
     }
     
     function test_CantCreateWithEmptySymbol() public {
-        vm.expectRevert("empty");
+        vm.expectRevert(LaunchpadTestable.EmptyNameOrSymbol.selector);
         launchpad.create("Name", "", "", 1 ether, block.timestamp + ONE_DAY);
     }
     
     function test_CantCreateWithZeroThreshold() public {
-        vm.expectRevert("invalid");
+        vm.expectRevert(LaunchpadTestable.InvalidThresholdOrDeadline.selector);
         launchpad.create("Name", "SYM", "", 0, block.timestamp + ONE_DAY);
     }
     
     function test_CantCreateWithPastDeadline() public {
-        vm.expectRevert("invalid");
+        vm.expectRevert(LaunchpadTestable.InvalidThresholdOrDeadline.selector);
         launchpad.create("Name", "SYM", "", 1 ether, block.timestamp - 1);
     }
     
@@ -282,7 +282,7 @@ contract LaunchpadE2ETest is Test {
         vm.warp(deadline + 1);
         
         vm.prank(bob);
-        vm.expectRevert("closed");
+        vm.expectRevert(LaunchpadTestable.LaunchClosed.selector);
         launchpad.join{value: 3 ether}(launchId);
     }
     
@@ -290,7 +290,7 @@ contract LaunchpadE2ETest is Test {
         uint256 launchId = launchpad.create("Test", "TEST", "", 5 ether, block.timestamp + ONE_DAY);
         
         vm.prank(alice);
-        vm.expectRevert("no value");
+        vm.expectRevert(LaunchpadTestable.ZeroValue.selector);
         launchpad.join{value: 0}(launchId);
     }
     
@@ -306,7 +306,7 @@ contract LaunchpadE2ETest is Test {
         
         launchpad.launch(launchId);
         
-        vm.expectRevert("not funding");
+        vm.expectRevert(LaunchpadTestable.NotFunding.selector);
         launchpad.launch(launchId);
     }
     
@@ -316,7 +316,7 @@ contract LaunchpadE2ETest is Test {
         vm.prank(alice);
         launchpad.join{value: 1 ether}(launchId);
         
-        vm.expectRevert("not launched");
+        vm.expectRevert(LaunchpadTestable.NotLaunched.selector);
         launchpad.claim(launchId);
     }
     
@@ -330,7 +330,7 @@ contract LaunchpadE2ETest is Test {
         
         vm.warp(block.timestamp + ONE_DAY + 1);
         
-        vm.expectRevert("cannot");
+        vm.expectRevert(LaunchpadTestable.CannotWithdraw.selector);
         launchpad.withdraw(launchId);
     }
     
@@ -342,7 +342,7 @@ contract LaunchpadE2ETest is Test {
         vm.prank(alice);
         launchpad.join{value: 1 ether}(launchId);
         
-        vm.expectRevert("cannot");
+        vm.expectRevert(LaunchpadTestable.CannotWithdraw.selector);
         launchpad.withdraw(launchId);
     }
     
@@ -352,7 +352,7 @@ contract LaunchpadE2ETest is Test {
         vm.prank(alice);
         launchpad.join{value: 1 ether}(launchId);
         
-        vm.expectRevert("not launched");
+        vm.expectRevert(LaunchpadTestable.NotLaunched.selector);
         launchpad.claimFees(launchId);
     }
     

@@ -19,6 +19,8 @@ contract ACPTest is Test {
     event Contributed(uint256 indexed poolId, address indexed contributor, uint256 amount);
     event Executed(uint256 indexed poolId, address indexed target, uint256 value, bool success);
     event Distributed(uint256 indexed poolId, address token, uint256 totalAmount);
+    event Deposited(uint256 indexed poolId, uint256 amount);
+    event TokenDeposited(uint256 indexed poolId, address token, uint256 amount);
     
     function setUp() public {
         acp = new ACP();
@@ -155,7 +157,7 @@ contract ACPTest is Test {
         uint256 poolId = acp.createPool(address(0));
         
         vm.prank(controller);
-        vm.expectRevert("no value");
+        vm.expectRevert(ACP.ZeroValue.selector);
         acp.contribute{value: 0}(poolId, alice);
     }
     
@@ -173,7 +175,7 @@ contract ACPTest is Test {
         uint256 poolId = acp.createPool(address(token));
         
         vm.prank(controller);
-        vm.expectRevert("not ETH pool");
+        vm.expectRevert(ACP.NotETHPool.selector);
         acp.contribute{value: 1 ether}(poolId, alice);
     }
     
@@ -216,7 +218,7 @@ contract ACPTest is Test {
         uint256 poolId = acp.createPool(address(0));
         
         vm.prank(controller);
-        vm.expectRevert("not token pool");
+        vm.expectRevert(ACP.NotTokenPool.selector);
         acp.contributeToken(poolId, alice, 100 ether);
     }
     
@@ -225,7 +227,7 @@ contract ACPTest is Test {
         uint256 poolId = acp.createPool(address(token));
         
         vm.prank(controller);
-        vm.expectRevert("no value");
+        vm.expectRevert(ACP.ZeroValue.selector);
         acp.contributeToken(poolId, alice, 0);
     }
     
@@ -312,7 +314,7 @@ contract ACPTest is Test {
         acp.contribute{value: 1 ether}(poolId, alice);
         
         vm.prank(controller);
-        vm.expectRevert("Insufficient balance");
+        vm.expectRevert(ACP.InsufficientBalance.selector);
         acp.execute(poolId, bob, 2 ether, "");
     }
     
@@ -359,7 +361,7 @@ contract ACPTest is Test {
         uint256 poolId = acp.createPool(address(token));
         
         vm.prank(controller);
-        vm.expectRevert("ETH pools only");
+        vm.expectRevert(ACP.NotETHPool.selector);
         acp.deposit{value: 1 ether}(poolId);
     }
     
@@ -371,20 +373,11 @@ contract ACPTest is Test {
         
         vm.startPrank(controller);
         token.approve(address(acp), 100 ether);
-        acp.depositToken(poolId, 50 ether);
+        acp.depositToken(poolId, address(token), 50 ether);
         vm.stopPrank();
         
-        assertEq(acp.getPoolBalance(poolId), 50 ether);
+        assertEq(acp.getPoolTokenBalance(poolId, address(token)), 50 ether);
         assertEq(token.balanceOf(address(acp)), 50 ether);
-    }
-    
-    function test_DepositToken_RevertETHPool() public {
-        vm.prank(controller);
-        uint256 poolId = acp.createPool(address(0));
-        
-        vm.prank(controller);
-        vm.expectRevert("Token pools only");
-        acp.depositToken(poolId, 50 ether);
     }
     
     function test_DepositToken_RevertNotController() public {
@@ -396,7 +389,7 @@ contract ACPTest is Test {
         token.approve(address(acp), 100 ether);
         
         vm.expectRevert(ACP.NotController.selector);
-        acp.depositToken(poolId, 50 ether);
+        acp.depositToken(poolId, address(token), 50 ether);
         vm.stopPrank();
     }
     
@@ -672,7 +665,7 @@ contract ACPTest is Test {
         acp.contribute{value: 1 ether}(pool1, bob);
         
         // Try to execute more than pool 1 has
-        vm.expectRevert("Insufficient balance");
+        vm.expectRevert(ACP.InsufficientBalance.selector);
         acp.execute(pool1, attacker, 5 ether, "");
         vm.stopPrank();
     }

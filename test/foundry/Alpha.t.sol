@@ -176,7 +176,7 @@ contract AlphaE2ETest is Test {
         vm.warp(buyTime);
         
         // Can't buy (threshold not met)
-        vm.expectRevert("threshold not met");
+        vm.expectRevert(AlphaTestable.ThresholdNotMet.selector);
         alpha.executeBuy(tradeId);
         
         // Withdraw and refund
@@ -249,7 +249,7 @@ contract AlphaE2ETest is Test {
         vm.warp(deadline + 1);
         
         vm.prank(bob);
-        vm.expectRevert("closed");
+        vm.expectRevert(AlphaTestable.TradeClosed.selector);
         alpha.join{value: 3 ether}(tradeId);
     }
     
@@ -268,7 +268,7 @@ contract AlphaE2ETest is Test {
         vm.prank(alice);
         alpha.join{value: 5 ether}(tradeId);
         
-        vm.expectRevert("too early");
+        vm.expectRevert(AlphaTestable.TooEarly.selector);
         alpha.executeBuy(tradeId);
     }
     
@@ -291,7 +291,7 @@ contract AlphaE2ETest is Test {
         vm.warp(buyTime);
         alpha.executeBuy(tradeId);
         
-        vm.expectRevert("too early");
+        vm.expectRevert(AlphaTestable.TooEarly.selector);
         alpha.executeSell(tradeId);
     }
     
@@ -317,7 +317,7 @@ contract AlphaE2ETest is Test {
         vm.warp(buyTime);
         alpha.executeBuy(tradeId);
         
-        vm.expectRevert("not funding");
+        vm.expectRevert(AlphaTestable.NotFunding.selector);
         alpha.executeBuy(tradeId);
     }
     
@@ -337,7 +337,7 @@ contract AlphaE2ETest is Test {
         alpha.join{value: 5 ether}(tradeId);
         
         vm.warp(sellTime);
-        vm.expectRevert("not bought");
+        vm.expectRevert(AlphaTestable.NotBought.selector);
         alpha.executeSell(tradeId);
     }
     
@@ -359,7 +359,7 @@ contract AlphaE2ETest is Test {
         vm.warp(buyTime);
         alpha.executeBuy(tradeId);
         
-        vm.expectRevert("not sold");
+        vm.expectRevert(AlphaTestable.NotSold.selector);
         alpha.claim(tradeId);
     }
     
@@ -381,7 +381,7 @@ contract AlphaE2ETest is Test {
         vm.warp(buyTime);
         alpha.executeBuy(tradeId);
         
-        vm.expectRevert("cannot");
+        vm.expectRevert(AlphaTestable.CannotWithdraw.selector);
         alpha.withdraw(tradeId);
     }
     

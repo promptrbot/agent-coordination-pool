@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title ACP - Agent Coordination Pool
@@ -16,8 +17,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  *
  * CONTRIBUTION = VOTE. No governance needed.
  */
-contract ACP {
+contract ACP is ReentrancyGuard {
     using SafeERC20 for IERC20;
+    
+    uint256 public constant MAX_CONTRIBUTORS = 250;
     
     struct Pool {
         address token;              // address(0) = ETH, else ERC-20
@@ -29,16 +32,27 @@ contract ACP {
     }
     
     mapping(uint256 => Pool) internal pools;
+    
+    // Per-pool token balances for ERC20 distributions
+    mapping(uint256 => mapping(address => uint256)) public poolTokenBalances;
+    
     uint256 public nextPoolId;
     
     event PoolCreated(uint256 indexed poolId, address indexed controller, address token);
     event Contributed(uint256 indexed poolId, address indexed contributor, uint256 amount);
     event Executed(uint256 indexed poolId, address indexed target, uint256 value, bool success);
     event Distributed(uint256 indexed poolId, address token, uint256 totalAmount);
+    event Deposited(uint256 indexed poolId, uint256 amount);
+    event TokenDeposited(uint256 indexed poolId, address token, uint256 amount);
     
     error NotController();
-    error InvalidAmount();
+    error NotETHPool();
+    error NotTokenPool();
+    error ZeroValue();
+    error InsufficientBalance();
     error TransferFailed();
+    error TooManyContributors();
+    error ExecutionFailed();
     
     modifier onlyController(uint256 poolId) {
         if (msg.sender != pools[poolId].controller) revert NotController();
@@ -61,8 +75,8 @@ contract ACP {
     /// @param contributor Address to credit (allows wrapper to attribute correctly)
     function contribute(uint256 poolId, address contributor) external payable onlyController(poolId) {
         Pool storage p = pools[poolId];
-        require(p.token == address(0), "not ETH pool");
-        require(msg.value > 0, "no value");
+        if (p.token != address(0)) revert NotETHPool();
+        if (msg.value == 0) revert ZeroValue();
         
         _recordContribution(poolId, contributor, msg.value);
     }
@@ -73,17 +87,22 @@ contract ACP {
     /// @param amount Amount of tokens to contribute
     function contributeToken(uint256 poolId, address contributor, uint256 amount) external onlyController(poolId) {
         Pool storage p = pools[poolId];
-        require(p.token != address(0), "not token pool");
-        require(amount > 0, "no value");
+        if (p.token == address(0)) revert NotTokenPool();
+        if (amount == 0) revert ZeroValue();
         
+        // Handle fee-on-transfer tokens
+        uint256 balBefore = IERC20(p.token).balanceOf(address(this));
         IERC20(p.token).safeTransferFrom(msg.sender, address(this), amount);
-        _recordContribution(poolId, contributor, amount);
+        uint256 received = IERC20(p.token).balanceOf(address(this)) - balBefore;
+        
+        _recordContribution(poolId, contributor, received);
     }
     
     function _recordContribution(uint256 poolId, address contributor, uint256 amount) internal {
         Pool storage p = pools[poolId];
         
         if (p.contributions[contributor] == 0) {
+            if (p.contributors.length >= MAX_CONTRIBUTORS) revert TooManyContributors();
             p.contributors.push(contributor);
         }
         p.contributions[contributor] += amount;
@@ -109,7 +128,7 @@ contract ACP {
         uint256 ethValue = 0;
         if (p.token == address(0)) {
             // ETH pool - track spend
-            require(p.balance >= value, "Insufficient balance");
+            if (p.balance < value) revert InsufficientBalance();
             p.balance -= value;
             ethValue = value;
         } else if (value > 0) {
@@ -126,7 +145,7 @@ contract ACP {
             if (result.length > 0) {
                 assembly { revert(add(result, 32), mload(result)) }
             }
-            revert("Execution failed");
+            revert ExecutionFailed();
         }
         
         return result;
@@ -135,25 +154,30 @@ contract ACP {
     /// @notice Distribute a token to all contributors pro-rata. Controller only.
     /// @param poolId Pool whose contributors receive distribution
     /// @param token Token to distribute (address(0) for ETH)
-    function distribute(uint256 poolId, address token) external onlyController(poolId) {
+    function distribute(uint256 poolId, address token) external onlyController(poolId) nonReentrant {
         Pool storage p = pools[poolId];
         
         uint256 balance;
         if (token == address(0)) {
             // For ETH, use tracked pool balance
             balance = p.balance;
-            p.balance = 0; // Reset
+            p.balance = 0;
         } else {
-            // For ERC-20, use actual balance (received tokens go here)
-            balance = IERC20(token).balanceOf(address(this));
+            // For ERC-20, use per-pool tracked balance
+            balance = poolTokenBalances[poolId][token];
+            poolTokenBalances[poolId][token] = 0;
         }
         
-        if (balance == 0) return;
+        if (balance == 0 || p.totalContributed == 0) return;
         
+        // Cache for gas
+        uint256 total = p.totalContributed;
+        uint256 len = p.contributors.length;
         uint256 totalDistributed;
-        for (uint256 i = 0; i < p.contributors.length; i++) {
+        
+        for (uint256 i = 0; i < len; i++) {
             address c = p.contributors[i];
-            uint256 share = (balance * p.contributions[c]) / p.totalContributed;
+            uint256 share = (balance * p.contributions[c]) / total;
             
             if (share > 0) {
                 if (token == address(0)) {
@@ -172,16 +196,25 @@ contract ACP {
     /// @notice Deposit ETH back into a pool (e.g., from sale proceeds). Controller only.
     function deposit(uint256 poolId) external payable onlyController(poolId) {
         Pool storage p = pools[poolId];
-        require(p.token == address(0), "ETH pools only");
+        if (p.token != address(0)) revert NotETHPool();
         p.balance += msg.value;
+        
+        emit Deposited(poolId, msg.value);
     }
     
     /// @notice Deposit ERC-20 back into a pool. Controller only.
-    function depositToken(uint256 poolId, uint256 amount) external onlyController(poolId) {
-        Pool storage p = pools[poolId];
-        require(p.token != address(0), "Token pools only");
-        IERC20(p.token).safeTransferFrom(msg.sender, address(this), amount);
-        p.balance += amount;
+    /// @param poolId Pool to deposit into
+    /// @param token Token to deposit (can be different from pool's contribution token)
+    /// @param amount Amount to deposit
+    function depositToken(uint256 poolId, address token, uint256 amount) external onlyController(poolId) {
+        // Handle fee-on-transfer tokens
+        uint256 balBefore = IERC20(token).balanceOf(address(this));
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        uint256 received = IERC20(token).balanceOf(address(this)) - balBefore;
+        
+        poolTokenBalances[poolId][token] += received;
+        
+        emit TokenDeposited(poolId, token, received);
     }
     
     // ============ Views ============
@@ -194,18 +227,32 @@ contract ACP {
         return pools[poolId].contributors;
     }
     
+    function getContributorsPaginated(uint256 poolId, uint256 start, uint256 count) external view returns (address[] memory) {
+        Pool storage p = pools[poolId];
+        uint256 len = p.contributors.length;
+        
+        if (start >= len) return new address[](0);
+        
+        uint256 end = start + count;
+        if (end > len) end = len;
+        
+        address[] memory result = new address[](end - start);
+        for (uint256 i = start; i < end; i++) {
+            result[i - start] = p.contributors[i];
+        }
+        return result;
+    }
+    
     function getContribution(uint256 poolId, address contributor) external view returns (uint256) {
         return pools[poolId].contributions[contributor];
     }
     
     function getPoolBalance(uint256 poolId) external view returns (uint256) {
-        Pool storage p = pools[poolId];
-        if (p.token == address(0)) {
-            return p.balance;
-        }
-        // For ERC-20, return tracked balance
-        // Note: If multiple pools use same token, this is shared. Use with care.
-        return p.balance;
+        return pools[poolId].balance;
+    }
+    
+    function getPoolTokenBalance(uint256 poolId, address token) external view returns (uint256) {
+        return poolTokenBalances[poolId][token];
     }
     
     function getPoolInfo(uint256 poolId) external view returns (

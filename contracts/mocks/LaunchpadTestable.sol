@@ -65,7 +65,7 @@ interface IClanker {
 }
 
 /// @title LaunchpadTestable
-/// @notice Launchpad with configurable addresses for testing
+/// @notice Coordinated token launches via Clanker
 contract LaunchpadTestable {
     using SafeERC20 for IERC20;
     
@@ -95,9 +95,21 @@ contract LaunchpadTestable {
     
     Launch[] public launches;
     
-    event LaunchCreated(uint256 indexed launchId, string name, string symbol, uint256 threshold);
+    event LaunchCreated(uint256 indexed launchId, string name, string symbol, uint256 threshold, address creator);
     event Joined(uint256 indexed launchId, address indexed contributor, uint256 amount);
     event Launched(uint256 indexed launchId, address token, uint256 ethRaised);
+    event Withdrawn(uint256 indexed launchId);
+    event FeesClaimed(uint256 indexed launchId, uint256 wethAmount, uint256 tokenAmount);
+    
+    error EmptyNameOrSymbol();
+    error InvalidThresholdOrDeadline();
+    error LaunchClosed();
+    error ZeroValue();
+    error NotFunding();
+    error NotLaunched();
+    error ThresholdNotMet();
+    error CannotWithdraw();
+    error NoToken();
     
     constructor(address _acp, address _clanker, address _weth, address _feeLocker) {
         acp = ACP(payable(_acp));
@@ -113,8 +125,8 @@ contract LaunchpadTestable {
         uint256 threshold,
         uint256 deadline
     ) external returns (uint256 launchId) {
-        require(bytes(name).length > 0 && bytes(symbol).length > 0, "empty");
-        require(threshold > 0 && deadline > block.timestamp, "invalid");
+        if (bytes(name).length == 0 || bytes(symbol).length == 0) revert EmptyNameOrSymbol();
+        if (threshold == 0 || deadline <= block.timestamp) revert InvalidThresholdOrDeadline();
         
         uint256 poolId = acp.createPool(address(0));
         launchId = launches.length;
@@ -131,13 +143,13 @@ contract LaunchpadTestable {
             status: Status.Funding
         }));
         
-        emit LaunchCreated(launchId, name, symbol, threshold);
+        emit LaunchCreated(launchId, name, symbol, threshold, msg.sender);
     }
     
     function join(uint256 launchId) external payable {
         Launch storage l = launches[launchId];
-        require(l.status == Status.Funding && block.timestamp <= l.deadline, "closed");
-        require(msg.value > 0, "no value");
+        if (l.status != Status.Funding || block.timestamp > l.deadline) revert LaunchClosed();
+        if (msg.value == 0) revert ZeroValue();
         
         acp.contribute{value: msg.value}(l.poolId, msg.sender);
         emit Joined(launchId, msg.sender, msg.value);
@@ -145,35 +157,42 @@ contract LaunchpadTestable {
     
     function launch(uint256 launchId) external {
         Launch storage l = launches[launchId];
-        require(l.status == Status.Funding, "not funding");
+        if (l.status != Status.Funding) revert NotFunding();
         
         (,,uint256 totalContributed,) = acp.getPoolInfo(l.poolId);
-        require(totalContributed >= l.threshold, "threshold not met");
+        if (totalContributed < l.threshold) revert ThresholdNotMet();
         
         acp.execute(l.poolId, address(this), totalContributed, "");
         
-        address token = _deployViaClanker(l, totalContributed);
+        address token = _deployViaClanker(l, launchId, totalContributed);
         
         l.token = token;
         l.status = Status.Launched;
         
+        // Transfer received tokens to ACP for distribution
         uint256 bal = IERC20(token).balanceOf(address(this));
-        if (bal > 0) IERC20(token).safeTransfer(address(acp), bal);
+        if (bal > 0) {
+            IERC20(token).approve(address(acp), bal);
+            acp.depositToken(l.poolId, token, bal);
+        }
         
         emit Launched(launchId, token, totalContributed);
     }
     
-    function _deployViaClanker(Launch storage l, uint256 ethAmount) internal returns (address) {
+    function _deployViaClanker(Launch storage l, uint256 launchId, uint256 ethAmount) internal returns (address) {
         IClanker.DeploymentConfig memory cfg;
+        
+        // Unique salt per launch
+        bytes32 salt = keccak256(abi.encodePacked(address(this), launchId, block.timestamp));
         
         cfg.tokenConfig = IClanker.TokenConfig({
             tokenAdmin: l.creator,
             name: l.name,
             symbol: l.symbol,
-            salt: bytes32(0),
+            salt: salt,
             image: l.image,
             metadata: "",
-            context: '{"interface":"ACP"}',
+            context: "{\"interface\":\"ACP\"}",
             originatingChainId: CHAIN_ID
         });
         
@@ -250,35 +269,42 @@ contract LaunchpadTestable {
     
     function claim(uint256 launchId) external {
         Launch storage l = launches[launchId];
-        require(l.status == Status.Launched, "not launched");
+        if (l.status != Status.Launched) revert NotLaunched();
         acp.distribute(l.poolId, l.token);
     }
     
     function withdraw(uint256 launchId) external {
         Launch storage l = launches[launchId];
-        require(l.status == Status.Funding && block.timestamp > l.deadline, "cannot");
+        if (l.status != Status.Funding || block.timestamp <= l.deadline) revert CannotWithdraw();
         l.status = Status.Expired;
         acp.distribute(l.poolId, address(0));
+        
+        emit Withdrawn(launchId);
     }
     
     function claimFees(uint256 launchId) external {
         Launch storage l = launches[launchId];
-        require(l.status == Status.Launched, "not launched");
-        require(l.token != address(0), "no token");
+        if (l.status != Status.Launched) revert NotLaunched();
+        if (l.token == address(0)) revert NoToken();
         
         IClankerFeeLocker(feeLocker).claim(address(this), l.token);
         
         uint256 wethBalance = IERC20(weth).balanceOf(address(this));
+        uint256 tokenBalance = IERC20(l.token).balanceOf(address(this));
+        
         if (wethBalance > 0) {
-            IERC20(weth).safeTransfer(address(acp), wethBalance);
+            IERC20(weth).approve(address(acp), wethBalance);
+            acp.depositToken(l.poolId, weth, wethBalance);
             acp.distribute(l.poolId, weth);
         }
         
-        uint256 tokenBalance = IERC20(l.token).balanceOf(address(this));
         if (tokenBalance > 0) {
-            IERC20(l.token).safeTransfer(address(acp), tokenBalance);
+            IERC20(l.token).approve(address(acp), tokenBalance);
+            acp.depositToken(l.poolId, l.token, tokenBalance);
             acp.distribute(l.poolId, l.token);
         }
+        
+        emit FeesClaimed(launchId, wethBalance, tokenBalance);
     }
     
     function availableFees(uint256 launchId) external view returns (uint256 wethFees, uint256 tokenFees) {
@@ -286,6 +312,8 @@ contract LaunchpadTestable {
         if (l.status != Status.Launched || l.token == address(0)) return (0, 0);
         return IClankerFeeLocker(feeLocker).availableFees(address(this), l.token);
     }
+    
+    // ============ Views ============
     
     function getLaunchInfo(uint256 launchId) external view returns (
         string memory name, string memory symbol, uint256 threshold,

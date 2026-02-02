@@ -170,7 +170,7 @@ contract ACPComprehensiveTest is Test {
         token.approve(address(acp), 100 ether);
         
         vm.expectRevert();
-        acp.depositToken(poolId, 100 ether);
+        acp.depositToken(poolId, address(token), 100 ether);
         vm.stopPrank();
     }
     
@@ -349,10 +349,10 @@ contract ACPComprehensiveTest is Test {
         
         vm.startPrank(controller);
         token.approve(address(acp), 50 ether);
-        acp.depositToken(poolId, 25 ether);
+        acp.depositToken(poolId, address(token), 25 ether);
         vm.stopPrank();
         
-        assertEq(acp.getPoolBalance(poolId), 75 ether);
+        assertEq(acp.getPoolTokenBalance(poolId, address(token)), 25 ether);
     }
     
     function test_TokenPool_Execute_UpdatesAllowance() public {
@@ -426,7 +426,7 @@ contract ACPComprehensiveTest is Test {
         acp.contribute{value: 10 ether}(poolId, alice);
         
         vm.prank(controller);
-        vm.expectRevert("Insufficient balance");
+        vm.expectRevert(ACP.InsufficientBalance.selector);
         acp.execute(poolId, bob, 10 ether + 1, "");
     }
     

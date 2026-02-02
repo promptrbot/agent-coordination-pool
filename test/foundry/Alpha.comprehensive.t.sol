@@ -53,7 +53,7 @@ contract AlphaComprehensiveTest is Test {
     // ============================================================
     
     function test_Create_RevertZeroToken() public {
-        vm.expectRevert("invalid token");
+        vm.expectRevert(AlphaTestable.InvalidToken.selector);
         alpha.create(
             address(0),
             1 ether,
@@ -65,7 +65,7 @@ contract AlphaComprehensiveTest is Test {
     }
     
     function test_Create_RevertSellLessThanBuy() public {
-        vm.expectRevert("sell<=buy");
+        vm.expectRevert(AlphaTestable.InvalidTiming.selector);
         alpha.create(
             address(targetToken),
             1 ether,
@@ -78,7 +78,7 @@ contract AlphaComprehensiveTest is Test {
     
     function test_Create_RevertSellEqualBuy() public {
         uint256 sameTime = block.timestamp + ONE_HOUR;
-        vm.expectRevert("sell<=buy");
+        vm.expectRevert(AlphaTestable.InvalidTiming.selector);
         alpha.create(
             address(targetToken),
             1 ether,
@@ -90,7 +90,7 @@ contract AlphaComprehensiveTest is Test {
     }
     
     function test_Create_RevertDeadlineAfterBuy() public {
-        vm.expectRevert("deadline>buy");
+        vm.expectRevert(AlphaTestable.InvalidTiming.selector);
         alpha.create(
             address(targetToken),
             1 ether,
@@ -174,7 +174,7 @@ contract AlphaComprehensiveTest is Test {
         vm.warp(deadline + 1);
         
         vm.prank(alice);
-        vm.expectRevert("closed");
+        vm.expectRevert(AlphaTestable.TradeClosed.selector);
         alpha.join{value: 1 ether}(tradeId);
     }
     
@@ -194,7 +194,7 @@ contract AlphaComprehensiveTest is Test {
         uint256 tradeId = alpha.create(address(targetToken), 5 ether, block.timestamp + ONE_HOUR, block.timestamp + ONE_DAY, block.timestamp + ONE_HOUR - 60, 200);
         
         vm.prank(alice);
-        vm.expectRevert("no value");
+        vm.expectRevert(AlphaTestable.ZeroValue.selector);
         alpha.join{value: 0}(tradeId);
     }
     
@@ -209,7 +209,7 @@ contract AlphaComprehensiveTest is Test {
         alpha.executeBuy(tradeId);
         
         vm.prank(bob);
-        vm.expectRevert("closed");
+        vm.expectRevert(AlphaTestable.TradeClosed.selector);
         alpha.join{value: 1 ether}(tradeId);
     }
     
@@ -283,7 +283,7 @@ contract AlphaComprehensiveTest is Test {
         
         vm.warp(buyTime - 1);
         
-        vm.expectRevert("too early");
+        vm.expectRevert(AlphaTestable.TooEarly.selector);
         alpha.executeBuy(tradeId);
     }
     
@@ -340,7 +340,7 @@ contract AlphaComprehensiveTest is Test {
         
         vm.warp(sellTime - 1);
         
-        vm.expectRevert("too early");
+        vm.expectRevert(AlphaTestable.TooEarly.selector);
         alpha.executeSell(tradeId);
     }
     
@@ -392,7 +392,7 @@ contract AlphaComprehensiveTest is Test {
         vm.prank(alice);
         alpha.join{value: 1 ether}(tradeId);
         
-        vm.expectRevert("cannot");
+        vm.expectRevert(AlphaTestable.CannotWithdraw.selector);
         alpha.withdraw(tradeId);
     }
     
@@ -407,7 +407,7 @@ contract AlphaComprehensiveTest is Test {
         alpha.withdraw(tradeId);
         
         // Second withdraw - already expired
-        vm.expectRevert("cannot");
+        vm.expectRevert(AlphaTestable.CannotWithdraw.selector);
         alpha.withdraw(tradeId);
     }
     
