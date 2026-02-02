@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install @openzeppelin/contracts
-          forge install foundry-rs/forge-std --no-commit
+          forge install foundry-rs/forge-std --no-git
 
       - name: Build
         run: forge build
@@ -62,7 +62,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install @openzeppelin/contracts
-          forge install foundry-rs/forge-std --no-commit
+          forge install foundry-rs/forge-std --no-git
 
       - name: Run fuzz tests
         run: forge test --match-test "testFuzz" -vvv
@@ -90,7 +90,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install @openzeppelin/contracts
-          forge install foundry-rs/forge-std --no-commit
+          forge install foundry-rs/forge-std --no-git
 
       - name: Run coverage
         run: forge coverage
