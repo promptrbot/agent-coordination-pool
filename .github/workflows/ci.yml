@@ -6,12 +6,9 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  FOUNDRY_PROFILE: ci
-
 jobs:
   test:
-    name: Test Suite
+    name: Foundry Tests
     runs-on: ubuntu-latest
     
     steps:
@@ -20,20 +17,84 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Setup Node.js (for OpenZeppelin)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          npm install @openzeppelin/contracts
+          forge install foundry-rs/forge-std --no-commit
+
+      - name: Build
+        run: forge build
+
+      - name: Run tests
+        run: forge test -vvv
+
+      - name: Run tests with gas report
+        run: forge test --gas-report
+
+  fuzz:
+    name: Fuzz Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install @openzeppelin/contracts
+          forge install foundry-rs/forge-std --no-commit
 
-      - name: Compile contracts
-        run: npx hardhat compile
+      - name: Run fuzz tests
+        run: forge test --match-test "testFuzz" -vvv
+        env:
+          FOUNDRY_PROFILE: ci
 
-      - name: Run unit tests
-        run: npx hardhat test test/unit/*.js
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          npm install @openzeppelin/contracts
+          forge install foundry-rs/forge-std --no-commit
+
+      - name: Run coverage
+        run: forge coverage
+        continue-on-error: true
 
   lint:
     name: Solidity Lint
@@ -47,60 +108,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
 
       - name: Install dependencies
         run: npm install
 
       - name: Run Solhint
-        run: npx solhint 'contracts/**/*.sol' || true  # Warn but don't fail
-
-  coverage:
-    name: Code Coverage
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run coverage
-        run: npx hardhat coverage || true  # Coverage report, don't fail on threshold
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
-
-  security:
-    name: Security Check
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run Slither
-        uses: crytic/slither-action@v0.3.0
-        continue-on-error: true  # Report issues but don't block
-        with:
-          node-version: '20'
-          fail-on: none
+        run: npx solhint 'contracts/**/*.sol' || true
