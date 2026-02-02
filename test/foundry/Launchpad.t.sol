@@ -398,11 +398,11 @@ contract LaunchpadE2ETest is Test {
     //                      FUZZ TESTS
     // ============================================================
     
-    function testFuzz_ContributionsPreserved(uint96 amount1, uint96 amount2) public {
-        vm.assume(amount1 >= 0.01 ether && amount2 >= 0.01 ether);
-        vm.assume(uint256(amount1) + uint256(amount2) <= 50 ether);
+    function testFuzz_ContributionsPreserved(uint256 amount1, uint256 amount2) public {
+        amount1 = bound(amount1, 0.01 ether, 25 ether);
+        amount2 = bound(amount2, 0.01 ether, 25 ether);
         
-        uint256 threshold = uint256(amount1) + uint256(amount2);
+        uint256 threshold = amount1 + amount2;
         
         uint256 launchId = launchpad.create(
             "Fuzz Token",
@@ -422,11 +422,11 @@ contract LaunchpadE2ETest is Test {
         assertEq(launchpad.getContribution(launchId, bob), amount2);
     }
     
-    function testFuzz_TokenDistributionProportional(uint96 amount1, uint96 amount2) public {
-        vm.assume(amount1 >= 0.1 ether && amount2 >= 0.1 ether);
-        vm.assume(uint256(amount1) + uint256(amount2) <= 50 ether);
+    function testFuzz_TokenDistributionProportional(uint256 amount1, uint256 amount2) public {
+        amount1 = bound(amount1, 0.1 ether, 25 ether);
+        amount2 = bound(amount2, 0.1 ether, 25 ether);
         
-        uint256 threshold = uint256(amount1) + uint256(amount2);
+        uint256 threshold = amount1 + amount2;
         
         uint256 launchId = launchpad.create("Fuzz", "FUZ", "", threshold, block.timestamp + ONE_DAY);
         
@@ -447,8 +447,8 @@ contract LaunchpadE2ETest is Test {
         uint256 bobTokens = launchedToken.balanceOf(bob);
         
         // Check proportionality
-        uint256 cross1 = aliceTokens * uint256(amount2);
-        uint256 cross2 = bobTokens * uint256(amount1);
+        uint256 cross1 = aliceTokens * amount2;
+        uint256 cross2 = bobTokens * amount1;
         
         uint256 tolerance = (cross1 > cross2 ? cross1 : cross2) / 1000; // 0.1%
         uint256 diff = cross1 > cross2 ? cross1 - cross2 : cross2 - cross1;

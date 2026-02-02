@@ -172,8 +172,8 @@ contract AlphaE2ETest is Test {
         vm.prank(bob);
         alpha.join{value: 3 ether}(tradeId);
         
-        // Wait for deadline
-        vm.warp(deadline + 1);
+        // Wait for buyTime (which is after deadline)
+        vm.warp(buyTime);
         
         // Can't buy (threshold not met)
         vm.expectRevert("threshold not met");
@@ -425,11 +425,11 @@ contract AlphaE2ETest is Test {
     //                      FUZZ TESTS
     // ============================================================
     
-    function testFuzz_ContributionsPreserved(uint96 amount1, uint96 amount2) public {
-        vm.assume(amount1 >= 0.01 ether && amount2 >= 0.01 ether);
-        vm.assume(uint256(amount1) + uint256(amount2) <= 50 ether);
+    function testFuzz_ContributionsPreserved(uint256 amount1, uint256 amount2) public {
+        amount1 = bound(amount1, 0.01 ether, 25 ether);
+        amount2 = bound(amount2, 0.01 ether, 25 ether);
         
-        uint256 threshold = uint256(amount1) + uint256(amount2);
+        uint256 threshold = amount1 + amount2;
         uint256 buyTime = block.timestamp + ONE_HOUR;
         
         uint256 tradeId = alpha.create(
