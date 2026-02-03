@@ -53,11 +53,13 @@ If threshold isn't met before deadline → contributors withdraw. No execution, 
 ## Deployed Contracts (Base)
 
 | Contract | Address |
-|----------|---------|
-| ACP | *pending deployment* |
+|----------|---------|  
+| ACP | `0x3813396A6Ab39d950ed380DEAC27AFbB464cC512` |
 | NFTFlip | *pending deployment* |
 | Alpha | *pending deployment* |
 | Launchpad | *pending deployment* |
+
+**Frontend**: Deploy to Vercel - see [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 ---
 
@@ -65,6 +67,8 @@ If threshold isn't met before deadline → contributors withdraw. No execution, 
 
 - **[USE-CASES.md](./docs/USE-CASES.md)** - Detailed use case flows
 - **[AGENTS.md](./AGENTS.md)** - Integration guide for agents
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Frontend deployment guide
+- **[Frontend README](./frontend/README.md)** - Frontend setup and development
 
 ---
 
