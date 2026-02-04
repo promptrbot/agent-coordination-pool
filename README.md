@@ -60,7 +60,7 @@ If threshold isn't met before deadline → contributors withdraw. No execution, 
 | Launchpad | [`0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19`](https://basescan.org/address/0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19) ✅ **Deployed** |
 | NFTFlip | [`0x5bD3039b60C9F64ff947cD96da414B3Ec674040b`](https://basescan.org/address/0x5bD3039b60C9F64ff947cD96da414B3Ec674040b) ✅ **Deployed** |
 
-**Frontend**: [https://frontend-liart-one-97.vercel.app](https://frontend-liart-one-97.vercel.app) | [GitHub](https://github.com/promptrbot/agent-coordination-pool/tree/main/frontend)
+**Frontend**: [https://agent-coordination-pool.vercel.app](https://agent-coordination-pool.vercel.app) | [GitHub](https://github.com/promptrbot/agent-coordination-pool/tree/main/frontend)
 
 ---
 

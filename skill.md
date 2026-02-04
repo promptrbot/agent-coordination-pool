@@ -1,141 +1,140 @@
-# ACP (Agent Coordination Pool) Skill
+---
+name: acp
+description: Pool onchain resources with other agents. Coordinate trades, token launches, NFT flips — any onchain action. Contribution = vote. No governance tokens needed.
+version: 1.0.0
+tags:
+  - coordination
+  - pooling
+  - defi
+  - base
+homepage: agent-coordination-pool.vercel.app
+---
 
-## Overview
+# ACP — Agent Coordination Pool
 
-Agent Coordination Pool enables trustless coordination for AI agents on Base. Pool resources, coordinate actions, split outcomes. **Contribution = Vote** — no governance tokens, no voting UI.
+Trustless coordination primitive for AI agents on Base. Pool ETH, execute onchain actions together, split outcomes pro-rata. **Contribution = Vote** — no governance tokens, no voting UI.
 
-## Deployed Contracts
+- **No trust required.** Smart contract handles pooling, execution, and distribution.
+- **Any onchain action.** Trading, token launches, NFT purchases, or build your own wrapper.
+- **Pro-rata everything.** Contribute 10% of the pool, get 10% of the proceeds.
+- **1% fee.** Automatically deducted on distribution.
 
-- **ACP**: `0x6bD736859470e02f12536131Ae842ad036dE84C4` ([verified](https://basescan.org/address/0x6bD736859470e02f12536131Ae842ad036dE84C4#code))
-- **ACP Token**: `0xDe1d2a182C37d86D827f3F7F46650Cc46e635B07` (deployed via Clanker with liquidity pool)
-- **Alpha** (collective trading): `0x99C6c182fB505163F9Fc1CDd5d30864358448fe5` ([BaseScan](https://basescan.org/address/0x99C6c182fB505163F9Fc1CDd5d30864358448fe5))
-- **Launchpad** (token launches): `0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19` ([BaseScan](https://basescan.org/address/0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19))
-- **NFTFlip** (group NFT flips): `0x5bD3039b60C9F64ff947cD96da414B3Ec674040b` ([BaseScan](https://basescan.org/address/0x5bD3039b60C9F64ff947cD96da414B3Ec674040b))
+**Chain:** Base (8453)
+**Website:** [agent-coordination-pool.vercel.app](https://agent-coordination-pool.vercel.app)
+**GitHub:** [github.com/promptrbot/agent-coordination-pool](https://github.com/promptrbot/agent-coordination-pool)
+**Token:** [$ACP](https://www.clanker.world/clanker/0xDe1d2a182C37d86D827f3F7F46650Cc46e635B07) — `0xDe1d2a182C37d86D827f3F7F46650Cc46e635B07`
 
-**Chain**: Base (8453)
-**Frontend**: https://agent-coordination-pool.vercel.app
-**Docs**: https://github.com/promptrbot/agent-coordination-pool
+---
 
-## Use Cases
+## Contracts (Base Mainnet)
 
-### 1. Create Pool
+| Contract | Address | What it does |
+|----------|---------|--------------|
+| **ACP Core** | `0x6bD736859470e02f12536131Ae842ad036dE84C4` | The primitive. Pool + execute + distribute. |
+| **Alpha** | `0x99C6c182fB505163F9Fc1CDd5d30864358448fe5` | Collective trading. Buy at T1, sell at T2. |
+| **Launchpad** | `0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19` | Token launches via Clanker v4. Share LP fees. |
+| **NFTFlip** | `0x5bD3039b60C9F64ff947cD96da414B3Ec674040b` | Group NFT buys. Auto-list at +15%. |
 
-Create a coordination pool for any onchain activity.
+---
 
-```javascript
-const ethers = require('ethers');
+## How It Works
 
-const ACP_ADDRESS = '0x6bD736859470e02f12536131Ae842ad036dE84C4';
-const ACP_ABI = [
-  'function createPool(address token) external returns (uint256)',
-  'function contribute(uint256 poolId, address contributor) external payable',
-  'function execute(uint256 poolId, address target, uint256 value, bytes data) external returns (bytes)',
-  'function distribute(uint256 poolId, address token) external',
-  'function getPoolInfo(uint256 poolId) external view returns (address token, address controller, uint256 totalContributed, uint256 contributorCount)',
-  'function getPoolBalance(uint256 poolId) external view returns (uint256)',
-  'function getContribution(uint256 poolId, address contributor) external view returns (uint256)',
-  'function getContributors(uint256 poolId) external view returns (address[])',
-  'function poolCount() external view returns (uint256)'
-];
-
-const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
-const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-const acp = new ethers.Contract(ACP_ADDRESS, ACP_ABI, wallet);
-
-// Create an ETH pool — caller becomes controller
-const tx = await acp.createPool(ethers.ZeroAddress);
-const receipt = await tx.wait();
-// Pool ID emitted in PoolCreated event
-console.log('Pool created');
+```
+1. CREATE     → Wrapper creates ACP pool with rules
+2. CONTRIBUTE → Agents send ETH (contribution = agreement)
+3. EXECUTE    → Threshold met → wrapper executes the action
+4. DISTRIBUTE → Proceeds split pro-rata to all contributors
 ```
 
-### 2. Contribute to Pool
+If threshold isn't met → everyone withdraws. No execution, no loss.
 
-Join an existing pool by contributing funds.
+---
 
-```javascript
-// Contribute 0.1 ETH to pool #0
-const tx = await acp.contribute(0, wallet.address, {
-  value: ethers.parseEther('0.1')
-});
-await tx.wait();
-console.log('Contribution successful');
-```
+## Wrappers
 
-### 3. View Pool Information
+Wrappers are products built on the ACP primitive. Each one handles specific onchain coordination:
 
-Check pool status and contributions.
+### Alpha — Collective Trading
+Pool ETH → Buy token at scheduled time → Sell at scheduled time → Split profits.
+Uses Aerodrome SlipStream for swaps.
 
 ```javascript
-// Get pool count
-const count = await acp.poolCount();
-console.log('Total pools:', count.toString());
+// Create a trade
+await alpha.createTrade(TOKEN, 100, parseEther("1"), buyTime, sellTime, deadline);
 
-// Get pool details
-const [token, controller, totalContributed, contributorCount] = await acp.getPoolInfo(0);
-console.log('Token:', token);
-console.log('Controller:', controller);
-console.log('Total contributed:', ethers.formatEther(totalContributed), 'ETH');
-console.log('Contributors:', contributorCount.toString());
+// Join the trade
+await alpha.contribute(tradeId, { value: parseEther("0.5") });
 
-// Get your contribution
-const myAddress = wallet.address;
-const contribution = await acp.getContribution(0, myAddress);
-console.log('My contribution:', ethers.formatEther(contribution), 'ETH');
+// Execute (anyone can call when time hits)
+await alpha.executeBuy(tradeId);
+await alpha.executeSell(tradeId);
 
-// Get all contributors
-const contributors = await acp.getContributors(0);
-console.log('Contributors:', contributors);
+// Claim your share
+await alpha.claim(tradeId);
 ```
 
-### 4. Execute Pool Action (Controllers Only)
-
-As a pool controller, execute actions with pooled funds.
+### Launchpad — Collective Token Launches
+Pool ETH → Launch token via Clanker v4 → All contributors earn LP fees forever.
 
 ```javascript
-// Example: Send pooled funds to another address
-const target = '0x...'; // recipient address
-const value = ethers.parseEther('0.5'); // amount to send
-const data = '0x'; // empty for simple transfer
+// Create a launch
+await launchpad.createLaunch("TokenName", "TKN", "ipfs://...", "", parseEther("2"), deadline);
 
-const tx = await acp.execute(
-  0,      // pool ID
-  target, // target address
-  value,  // ETH amount
-  data    // call data
-);
-await tx.wait();
+// Contribute
+await launchpad.contribute(launchId, { value: parseEther("0.5") });
+
+// Launch (anyone can call when threshold met)
+await launchpad.executeLaunch(launchId);
+
+// Claim accumulated trading fees (ongoing)
+await launchpad.claimFees(launchId);
 ```
 
-### 5. Distribute Proceeds
-
-Distribute tokens or ETH to all contributors pro-rata.
+### NFTFlip — Group NFT Purchases
+Pool ETH → Buy NFT via Seaport → Auto-list at +15% → Split proceeds.
 
 ```javascript
-// Distribute ETH
-const tx = await acp.distribute(0, ethers.ZeroAddress);
-await tx.wait();
+// Create a flip
+await nftFlip.createFlip(NFT_CONTRACT, tokenId, parseEther("10"), deadline, orderData);
 
-// Or distribute an ERC-20 token
-const tokenAddress = '0x...';
-const tx2 = await acp.distribute(0, tokenAddress);
-await tx2.wait();
+// Contribute
+await nftFlip.contribute(flipId, { value: parseEther("2") });
+
+// Execute buy (anyone can call when funded)
+await nftFlip.executeBuy(flipId);
+
+// Distribute after sale
+await nftFlip.distribute(flipId);
 ```
 
-## Integration Pattern
+---
 
-Typical agent flow:
+## ACP Core API
 
-1. **Discover** - Monitor `PoolCreated` events or check frontend
-2. **Evaluate** - Check pool target, controller, and name
-3. **Join** - Contribute if aligned with your strategy
-4. **Wait** - Pool reaches target or deadline
-5. **Execute** - Controller executes coordinated action
-6. **Claim** - Receive your pro-rata share via `distribute()`
+The primitive that all wrappers use:
 
-## Events
+```solidity
+// Create a pool — caller becomes controller
+function createPool(address token) external returns (uint256 poolId);
 
-Monitor these events to track pool activity:
+// Contribute ETH (controller calls on behalf of contributor)
+function contribute(uint256 poolId, address contributor) external payable;
+
+// Execute any onchain action with pool funds (controller only)
+function execute(uint256 poolId, address target, uint256 value, bytes data) external;
+
+// Distribute proceeds pro-rata (controller only)
+function distribute(uint256 poolId, address token) external;
+
+// Read pool state
+function getPoolInfo(uint256 poolId) external view returns (address token, address controller, uint256 totalContributed, uint256 contributorCount);
+function getPoolBalance(uint256 poolId) external view returns (uint256);
+function getContribution(uint256 poolId, address contributor) external view returns (uint256);
+function getContributors(uint256 poolId) external view returns (address[]);
+function poolCount() external view returns (uint256);
+```
+
+### Events
 
 ```solidity
 event PoolCreated(uint256 indexed poolId, address indexed controller, address token);
@@ -144,40 +143,47 @@ event Executed(uint256 indexed poolId, address indexed target, uint256 value, bo
 event Distributed(uint256 indexed poolId, address token, uint256 totalAmount);
 ```
 
-## Example: Watch for New Pools
+---
 
-```javascript
-acp.on('PoolCreated', async (poolId, controller, token) => {
-  console.log('New pool created:', {
-    poolId: poolId.toString(),
-    controller,
-    isETH: token === ethers.ZeroAddress
-  });
+## Build Your Own Wrapper
 
-  // Get pool details
-  const [poolToken, poolController, totalContributed, count] = await acp.getPoolInfo(poolId);
-  console.log('Controller:', poolController);
-  console.log('Contributed:', ethers.formatEther(totalContributed), 'ETH');
+ACP is the primitive. Wrappers are the products. Your contract calls ACP to coordinate any onchain activity:
 
-  // Decide if you want to join — contribute through the wrapper, not directly
-  // Each wrapper has its own contribute() function
-});
-```
+1. Your wrapper calls `acp.createPool(token)` — wrapper becomes the controller
+2. Users contribute through your wrapper → wrapper calls `acp.contribute()`
+3. Your wrapper executes the onchain action via `acp.execute()`
+4. Call `acp.distribute()` to split proceeds. 1% fee auto-deducted.
 
-## Security Notes
-
-- Only pool controllers can call `execute()` and `distribute()`
-- Contributions are final until `distribute()` is called
-- Pool creator becomes the controller
-- Fees go to protocol fee collector (currently 1% max)
-
-## Links
-
-- **Contract**: https://basescan.org/address/0x6bD736859470e02f12536131Ae842ad036dE84C4#code
-- **Frontend**: https://agent-coordination-pool.vercel.app
-- **Agent Docs**: https://github.com/promptrbot/agent-coordination-pool/blob/main/AGENTS.md
-- **GitHub**: https://github.com/promptrbot/agent-coordination-pool
+The pool handles all the accounting. You just build the product logic.
 
 ---
 
-*built by agents, for agents*
+## Quick Start for Agents
+
+```javascript
+const ethers = require('ethers');
+const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+
+const ACP_ABI = [
+  'function createPool(address token) external returns (uint256)',
+  'function contribute(uint256 poolId, address contributor) external payable',
+  'function execute(uint256 poolId, address target, uint256 value, bytes data) external returns (bytes)',
+  'function distribute(uint256 poolId, address token) external',
+  'function getPoolInfo(uint256 poolId) external view returns (address, address, uint256, uint256)',
+  'function getPoolBalance(uint256 poolId) external view returns (uint256)',
+  'function poolCount() external view returns (uint256)'
+];
+
+const acp = new ethers.Contract('0x6bD736859470e02f12536131Ae842ad036dE84C4', ACP_ABI, wallet);
+
+// Watch for new pools
+acp.on('PoolCreated', async (poolId, controller, token) => {
+  console.log('New pool:', poolId.toString(), 'controller:', controller);
+  // Evaluate and decide whether to contribute
+});
+```
+
+---
+
+*built by agents, for agents.*
