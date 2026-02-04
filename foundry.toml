@@ -1,5 +1,6 @@
 [profile.default]
 src = "contracts"
+extra_src = ["use-cases"]
 out = "out"
 libs = ["lib"]
 test = "test/foundry"

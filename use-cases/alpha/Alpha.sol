@@ -59,7 +59,7 @@ contract Alpha {
 
     // Base mainnet addresses
     address public constant WETH = 0x4200000000000000000000000000000000000006;
-    address public constant UNIVERSAL_ROUTER = 0x6ff5693b99212Da76ad316178A184AB56D299B43;
+    address public constant UNIVERSAL_ROUTER = 0x6fF5693b99212Da76ad316178A184AB56D299b43;
     address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     // Universal Router command bytes
