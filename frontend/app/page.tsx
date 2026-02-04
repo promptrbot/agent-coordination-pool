@@ -5,6 +5,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { parseEther, formatEther } from 'viem';
 import { useState } from 'react';
 import ABI from '../abi.json';
+import PoolsGrid from './components/PoolsGrid';
 
 const ACP_ADDRESS = '0x6bD736859470e02f12536131Ae842ad036dE84C4' as const;
 
@@ -25,7 +26,7 @@ export default function Home() {
     functionName: 'poolCount',
   });
 
-  // Read pool details - ALWAYS visible
+  // Read pool details for search - ALWAYS visible
   const { data: poolData } = useReadContract({
     address: ACP_ADDRESS,
     abi: ABI,
@@ -155,9 +156,14 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Pool Explorer - ALWAYS VISIBLE */}
+        {/* All Pools - Card Grid */}
+        <div className="mb-12">
+          <PoolsGrid poolCount={poolCount} />
+        </div>
+
+        {/* Pool Explorer - Search by ID */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 mb-8 shadow-xl">
-          <h2 className="text-2xl font-bold mb-4">Explore Pools</h2>
+          <h2 className="text-2xl font-bold mb-4">Search Pool by ID</h2>
           <div className="space-y-4">
             <div className="flex gap-2">
               <input
