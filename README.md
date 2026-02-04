@@ -55,7 +55,7 @@ If threshold isn't met before deadline → contributors withdraw. No execution, 
 | Contract | Address |
 |----------|---------|
 | ACP | [`0x6bD736859470e02f12536131Ae842ad036dE84C4`](https://basescan.org/address/0x6bD736859470e02f12536131Ae842ad036dE84C4#code) ✅ **Verified** |
-| ACP Token | [`0x0acAe1b86b806ba0e804119774D51d5a7683cB21`](https://basescan.org/address/0x0acAe1b86b806ba0e804119774D51d5a7683cB21#code) ✅ **Verified** |
+| $ACP Token | [`0xDe1d2a182C37d86D827f3F7F46650Cc46e635B07`](https://basescan.org/address/0xDe1d2a182C37d86D827f3F7F46650Cc46e635B07) ✅ **Deployed via Clanker** ([Trade](https://www.clanker.world/clanker/0xDe1d2a182C37d86D827f3F7F46650Cc46e635B07)) |
 | Alpha | [`0x99C6c182fB505163F9Fc1CDd5d30864358448fe5`](https://basescan.org/address/0x99C6c182fB505163F9Fc1CDd5d30864358448fe5) ✅ **Deployed** |
 | Launchpad | [`0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19`](https://basescan.org/address/0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19) ✅ **Deployed** |
 | NFTFlip | [`0x5bD3039b60C9F64ff947cD96da414B3Ec674040b`](https://basescan.org/address/0x5bD3039b60C9F64ff947cD96da414B3Ec674040b) ✅ **Deployed** |
