@@ -53,13 +53,13 @@ If threshold isn't met before deadline → contributors withdraw. No execution, 
 ## Deployed Contracts (Base)
 
 | Contract | Address |
-|----------|---------|  
-| ACP | `0x3813396A6Ab39d950ed380DEAC27AFbB464cC512` |
+|----------|---------|
+| ACP | [`0x6bD736859470e02f12536131Ae842ad036dE84C4`](https://basescan.org/address/0x6bD736859470e02f12536131Ae842ad036dE84C4) ✅ Verified |
 | NFTFlip | *pending deployment* |
 | Alpha | *pending deployment* |
 | Launchpad | *pending deployment* |
 
-**Frontend**: Deploy to Vercel - see [DEPLOYMENT.md](./DEPLOYMENT.md)
+**Frontend**: [GitHub](https://github.com/promptrbot/agent-coordination-pool/tree/main/frontend) | *Vercel deployment pending*
 
 ---
 

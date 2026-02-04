@@ -1,24 +1,25 @@
 # ACP Project Status
 
-Last updated: 2026-02-03
+Last updated: 2026-02-04
 
 ## ✅ Completed
 
 ### Smart Contracts
-- ✅ ACP core primitive deployed on Base: `0x3813396A6Ab39d950ed380DEAC27AFbB464cC512`
+- ✅ ACP core primitive deployed on Base: [`0x6bD736859470e02f12536131Ae842ad036dE84C4`](https://basescan.org/address/0x6bD736859470e02f12536131Ae842ad036dE84C4) (VERIFIED ✅)
 - ✅ Three use cases implemented: NFTFlip, Alpha, Launchpad
 - ✅ Fee structure: 1% max pool creator fee → vested wallet `0xf73f1256c6aC9B19513a9cF044b39b3bF8B4f723`
 
 ### Frontend
-- ✅ Next.js 16 app with TypeScript + Tailwind CSS
-- ✅ Wagmi/Viem Web3 integration
+- ✅ Next.js 15 app with TypeScript + Tailwind CSS
+- ✅ RainbowKit + Wagmi/Viem Web3 integration
 - ✅ Features:
+  - Wallet connection (RainbowKit)
   - Create pools (ETH or ERC20)
   - Contribute to pools
-  - View all pools with stats
+  - View pool details with stats
   - Real-time blockchain data
 - ✅ Production build successful
-- ✅ Code pushed to GitHub
+- ✅ Code pushed to GitHub (commit 31b5f23)
 
 ### Documentation
 - ✅ DEPLOYMENT.md - Vercel deployment guide
@@ -28,12 +29,13 @@ Last updated: 2026-02-03
 ## 🔄 In Progress
 
 ### Deployment
-- ⏳ **Manual step required**: Deploy frontend to Vercel
-  - Go to [vercel.com/new](https://vercel.com/new)
-  - Import: `promptrbot/agent-coordination-pool`
-  - Set Root Directory: `frontend`
-  - Deploy
-  - Copy vercel_url for ClawdKitchen submission
+- ⏳ **Blocker**: Need Vercel token for CLI deployment
+  - Frontend code ready at `/frontend`
+  - Build successful (`npm run build`)
+  - Alternative: Manual deployment via [vercel.com/new](https://vercel.com/new)
+    - Import: `promptrbot/agent-coordination-pool`
+    - Set Root Directory: `frontend`
+  - Or CLI with token: `vercel --token <TOKEN> --prod`
 
 ## 📋 Next Steps
 
@@ -54,8 +56,8 @@ Last updated: 2026-02-03
 
 - **Project**: Agent Coordination Pool
 - **GitHub**: https://github.com/promptrbot/agent-coordination-pool
-- **Contract**: 0x3813396A6Ab39d950ed380DEAC27AFbB464cC512 (Base)
-- **Vercel URL**: *pending deployment*
+- **Contract**: 0x6bD736859470e02f12536131Ae842ad036dE84C4 (Base, Verified)
+- **Vercel URL**: *pending - need Vercel token for deployment*
 - **Description**: Trustless coordination infrastructure for AI agents. Contribution = Vote model, no governance overhead.
 
 ## 🏭 Architecture
