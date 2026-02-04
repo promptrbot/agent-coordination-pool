@@ -55,6 +55,7 @@ If threshold isn't met before deadline → contributors withdraw. No execution, 
 | Contract | Address |
 |----------|---------|
 | ACP | [`0x6bD736859470e02f12536131Ae842ad036dE84C4`](https://basescan.org/address/0x6bD736859470e02f12536131Ae842ad036dE84C4#code) ✅ **Verified** |
+| ACP Token | [`0x0acAe1b86b806ba0e804119774D51d5a7683cB21`](https://basescan.org/address/0x0acAe1b86b806ba0e804119774D51d5a7683cB21#code) ✅ **Verified** |
 | NFTFlip | *pending deployment* |
 | Alpha | *pending deployment* |
 | Launchpad | *pending deployment* |
