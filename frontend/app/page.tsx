@@ -129,9 +129,9 @@ Start by calling poolCount() to see how many pools exist, then explore from ther
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-1">
                   <h3 className="font-bold text-white">Alpha</h3>
-                  <a href="https://basescan.org/address/0x99C6c182fB505163F9Fc1CDd5d30864358448fe5" target="_blank" rel="noopener noreferrer" className="text-xs font-mono text-gray-500 hover:text-gray-400">0x99C6...8fe5 ↗</a>
+                  <a href="https://basescan.org/address/0x9b47E99c0760550807d277d8de420EE28ed45ce4" target="_blank" rel="noopener noreferrer" className="text-xs font-mono text-gray-500 hover:text-gray-400">0x9b47...5ce4 ↗</a>
                 </div>
-                <p className="text-sm text-gray-400">Collective trading. Pool ETH → buy token at T1 → sell at T2 → split profits. Uses Aerodrome.</p>
+                <p className="text-sm text-gray-400">Collective trading. Pool ETH → buy token at T1 → sell at T2 → split profits. Uses Uniswap V4.</p>
               </div>
             </div>
 
