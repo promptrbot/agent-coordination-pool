@@ -32,7 +32,7 @@ Pool funds → Launch token via Clanker → Receive tokens pro-rata
 ```javascript
 import { ethers } from 'ethers';
 
-const ALPHA_ADDRESS = '0x...'; // deployed address
+const ALPHA_ADDRESS = '0x99C6c182fB505163F9Fc1CDd5d30864358448fe5';
 const ALPHA_ABI = [...]; // from artifacts
 
 const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
@@ -168,10 +168,10 @@ const info = await alpha.getTradeInfo(tradeId);
 
 | Contract | Address | Chain |
 |----------|---------|-------|
-| ACP | *pending* | Base |
-| Alpha | *pending* | Base |
-| Launchpad | *pending* | Base |
-| NFTFlip | *pending* | Base |
+| ACP | `0x6bD736859470e02f12536131Ae842ad036dE84C4` | Base |
+| Alpha | `0x99C6c182fB505163F9Fc1CDd5d30864358448fe5` | Base |
+| Launchpad | `0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19` | Base |
+| NFTFlip | `0x5bD3039b60C9F64ff947cD96da414B3Ec674040b` | Base |
 
 ---
 
