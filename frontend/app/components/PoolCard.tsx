@@ -17,7 +17,9 @@ interface PoolCardProps {
   pool: PoolData;
 }
 
-const WRAPPER_INFO = {
+type PoolColor = 'blue' | 'purple' | 'green' | 'gray';
+
+const WRAPPER_INFO: Record<string, { color: PoolColor; icon: string; description: string; skillUrl: string }> = {
   Alpha: {
     color: 'blue',
     icon: '🎯',
@@ -49,14 +51,14 @@ export default function PoolCard({ pool }: PoolCardProps) {
   const wrapperInfo = WRAPPER_INFO[wrapperType];
   const isETH = pool.token === '0x0000000000000000000000000000000000000000';
 
-  const colorClasses = {
+  const colorClasses: Record<PoolColor, string> = {
     blue: 'from-blue-500 to-blue-600 border-blue-200 dark:border-blue-800',
     purple: 'from-purple-500 to-purple-600 border-purple-200 dark:border-purple-800',
     green: 'from-green-500 to-green-600 border-green-200 dark:border-green-800',
     gray: 'from-gray-500 to-gray-600 border-gray-200 dark:border-gray-800',
   };
 
-  const bgColorClasses = {
+  const bgColorClasses: Record<PoolColor, string> = {
     blue: 'bg-blue-50 dark:bg-blue-900/20',
     purple: 'bg-purple-50 dark:bg-purple-900/20',
     green: 'bg-green-50 dark:bg-green-900/20',

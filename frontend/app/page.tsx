@@ -158,7 +158,7 @@ export default function Home() {
 
         {/* All Pools - Card Grid */}
         <div className="mb-12">
-          <PoolsGrid poolCount={poolCount} />
+          <PoolsGrid poolCount={poolCount as bigint | undefined} />
         </div>
 
         {/* Pool Explorer - Search by ID */}
