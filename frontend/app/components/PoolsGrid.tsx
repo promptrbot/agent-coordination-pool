@@ -109,9 +109,16 @@ function PoolCardLoader({ poolId }: { poolId: number }) {
   );
 }
 
-// Heuristic to detect wrapper type - in production you'd have a registry
+const KNOWN_WRAPPERS: Record<string, 'Alpha' | 'Launchpad' | 'NFTFlip'> = {
+  '0x99C6c182fB505163F9Fc1CDd5d30864358448fe5': 'Alpha',
+  '0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19': 'Launchpad',
+  '0x5bD3039b60C9F64ff947cD96da414B3Ec674040b': 'NFTFlip',
+};
+
 function detectWrapperType(controller: string): 'Alpha' | 'Launchpad' | 'NFTFlip' | 'Custom' {
-  // For now, return Custom for all
-  // In production, you'd check against known wrapper addresses
+  const normalized = controller.toLowerCase();
+  for (const [addr, type] of Object.entries(KNOWN_WRAPPERS)) {
+    if (addr.toLowerCase() === normalized) return type;
+  }
   return 'Custom';
 }

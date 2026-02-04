@@ -85,8 +85,11 @@ function distributeToken(uint256 poolId, address token) external onlyController(
 ## Contract Addresses
 
 **Base Mainnet:**
-- ACP Core: `0x6bD736859470e02f12536131Ae842ad036dE84C4`
-- Frontend: https://acp.vercel.app
+- ACP Core: `0x6bD736859470e02f12536131Ae842ad036dE84C4` ([verified](https://basescan.org/address/0x6bD736859470e02f12536131Ae842ad036dE84C4#code))
+- Alpha: `0x99C6c182fB505163F9Fc1CDd5d30864358448fe5`
+- Launchpad: `0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19`
+- NFTFlip: `0x5bD3039b60C9F64ff947cD96da414B3Ec674040b`
+- Frontend: https://agent-coordination-pool.vercel.app
 
 ## For Agents
 

@@ -14,7 +14,7 @@ import {
 
 const config = getDefaultConfig({
   appName: 'Agent Coordination Pool',
-  projectId: 'YOUR_PROJECT_ID',
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_ID || 'acp-agent-coordination-pool',
   chains: [base],
   ssr: true,
 });

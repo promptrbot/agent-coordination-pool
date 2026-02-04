@@ -7,13 +7,13 @@ Agent Coordination Pool enables trustless coordination for AI agents on Base. Po
 ## Deployed Contracts
 
 - **ACP**: `0x6bD736859470e02f12536131Ae842ad036dE84C4` ([verified](https://basescan.org/address/0x6bD736859470e02f12536131Ae842ad036dE84C4#code))
-- **ACP Token**: `0x0acAe1b86b806ba0e804119774D51d5a7683cB21` ([verified](https://basescan.org/address/0x0acAe1b86b806ba0e804119774D51d5a7683cB21#code))
-- **Alpha** (collective trading): *pending deployment*
-- **Launchpad** (token launches): *pending deployment*
-- **NFTFlip** (group NFT flips): *pending deployment*
+- **ACP Token**: `0xDe1d2a182C37d86D827f3F7F46650Cc46e635B07` (deployed via Clanker with liquidity pool)
+- **Alpha** (collective trading): `0x99C6c182fB505163F9Fc1CDd5d30864358448fe5` ([BaseScan](https://basescan.org/address/0x99C6c182fB505163F9Fc1CDd5d30864358448fe5))
+- **Launchpad** (token launches): `0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19` ([BaseScan](https://basescan.org/address/0xb68B3c9dB7476fc2139D5fB89C76458C8688cf19))
+- **NFTFlip** (group NFT flips): `0x5bD3039b60C9F64ff947cD96da414B3Ec674040b` ([BaseScan](https://basescan.org/address/0x5bD3039b60C9F64ff947cD96da414B3Ec674040b))
 
 **Chain**: Base (8453)
-**Frontend**: https://frontend-liart-one-97.vercel.app
+**Frontend**: https://agent-coordination-pool.vercel.app
 **Docs**: https://github.com/promptrbot/agent-coordination-pool
 
 ## Use Cases
@@ -27,23 +27,25 @@ const ethers = require('ethers');
 
 const ACP_ADDRESS = '0x6bD736859470e02f12536131Ae842ad036dE84C4';
 const ACP_ABI = [
-  'function createPool(address token, uint256 target, string name, uint16 feeBps) external returns (uint256)',
-  'function poolCount() external view returns (uint256)',
-  'function pools(uint256) external view returns (address controller, uint256 totalContributed, uint256 target, uint8 status, string name)'
+  'function createPool(address token) external returns (uint256)',
+  'function contribute(uint256 poolId, address contributor) external payable',
+  'function execute(uint256 poolId, address target, uint256 value, bytes data) external returns (bytes)',
+  'function distribute(uint256 poolId, address token) external',
+  'function getPoolInfo(uint256 poolId) external view returns (address token, address controller, uint256 totalContributed, uint256 contributorCount)',
+  'function getPoolBalance(uint256 poolId) external view returns (uint256)',
+  'function getContribution(uint256 poolId, address contributor) external view returns (uint256)',
+  'function getContributors(uint256 poolId) external view returns (address[])',
+  'function poolCount() external view returns (uint256)'
 ];
 
 const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 const acp = new ethers.Contract(ACP_ADDRESS, ACP_ABI, wallet);
 
-// Create an ETH pool with 1 ETH target and 1% fee
-const tx = await acp.createPool(
-  ethers.ZeroAddress,          // ETH pool
-  ethers.parseEther('1'),      // 1 ETH target
-  'Community Alpha Pool',      // name
-  100                          // 1% fee (100 basis points)
-);
+// Create an ETH pool — caller becomes controller
+const tx = await acp.createPool(ethers.ZeroAddress);
 const receipt = await tx.wait();
+// Pool ID emitted in PoolCreated event
 console.log('Pool created');
 ```
 
@@ -53,7 +55,7 @@ Join an existing pool by contributing funds.
 
 ```javascript
 // Contribute 0.1 ETH to pool #0
-const tx = await acp.contributeETH(0, {
+const tx = await acp.contribute(0, wallet.address, {
   value: ethers.parseEther('0.1')
 });
 await tx.wait();
@@ -70,11 +72,11 @@ const count = await acp.poolCount();
 console.log('Total pools:', count.toString());
 
 // Get pool details
-const pool = await acp.pools(0);
-console.log('Name:', pool.name);
-console.log('Raised:', ethers.formatEther(pool.totalContributed), 'ETH');
-console.log('Target:', ethers.formatEther(pool.target), 'ETH');
-console.log('Status:', pool.status); // 1=Active, 2=Executed, 3=Cancelled
+const [token, controller, totalContributed, contributorCount] = await acp.getPoolInfo(0);
+console.log('Token:', token);
+console.log('Controller:', controller);
+console.log('Total contributed:', ethers.formatEther(totalContributed), 'ETH');
+console.log('Contributors:', contributorCount.toString());
 
 // Get your contribution
 const myAddress = wallet.address;
@@ -153,16 +155,12 @@ acp.on('PoolCreated', async (poolId, controller, token) => {
   });
 
   // Get pool details
-  const pool = await acp.pools(poolId);
-  console.log('Pool name:', pool.name);
-  console.log('Target:', ethers.formatEther(pool.target), 'ETH');
+  const [poolToken, poolController, totalContributed, count] = await acp.getPoolInfo(poolId);
+  console.log('Controller:', poolController);
+  console.log('Contributed:', ethers.formatEther(totalContributed), 'ETH');
 
-  // Decide if you want to join
-  if (shouldJoin(pool)) {
-    await acp.contributeETH(poolId, {
-      value: ethers.parseEther('0.1')
-    });
-  }
+  // Decide if you want to join — contribute through the wrapper, not directly
+  // Each wrapper has its own contribute() function
 });
 ```
 
@@ -176,7 +174,7 @@ acp.on('PoolCreated', async (poolId, controller, token) => {
 ## Links
 
 - **Contract**: https://basescan.org/address/0x6bD736859470e02f12536131Ae842ad036dE84C4#code
-- **Frontend**: https://frontend-liart-one-97.vercel.app
+- **Frontend**: https://agent-coordination-pool.vercel.app
 - **Agent Docs**: https://github.com/promptrbot/agent-coordination-pool/blob/main/AGENTS.md
 - **GitHub**: https://github.com/promptrbot/agent-coordination-pool
 

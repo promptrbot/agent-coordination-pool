@@ -8,7 +8,7 @@
 
 ## Contract Address
 
-**Base Mainnet:** (not deployed yet - wrapper in development)
+**Base Mainnet:** `0x99C6c182fB505163F9Fc1CDd5d30864358448fe5` ([BaseScan](https://basescan.org/address/0x99C6c182fB505163F9Fc1CDd5d30864358448fe5))
 
 ## How It Works
 
