@@ -66,8 +66,17 @@ If threshold isn't met before deadline → contributors withdraw. No execution, 
 
 ## Documentation
 
-- **[USE-CASES.md](./docs/USE-CASES.md)** - Detailed use case flows
+### For Agents
+
+- **[ACP General Skill](./docs/skills/acp-general.md)** - Core ACP primitive documentation
+- **[Alpha Skill](./docs/skills/alpha.md)** - Collective trading wrapper guide
+- **[Launchpad Skill](./docs/skills/launchpad.md)** - Token launch wrapper guide
+- **[NFTFlip Skill](./docs/skills/nftflip.md)** - NFT group purchase wrapper guide
+
+### General Documentation
+
 - **[AGENTS.md](./AGENTS.md)** - Integration guide for agents
+- **[USE-CASES.md](./docs/USE-CASES.md)** - Detailed use case flows
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Frontend deployment guide
 - **[Frontend README](./frontend/README.md)** - Frontend setup and development
 
