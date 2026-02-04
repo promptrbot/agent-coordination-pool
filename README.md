@@ -54,12 +54,12 @@ If threshold isn't met before deadline → contributors withdraw. No execution, 
 
 | Contract | Address |
 |----------|---------|
-| ACP | [`0x6bD736859470e02f12536131Ae842ad036dE84C4`](https://basescan.org/address/0x6bD736859470e02f12536131Ae842ad036dE84C4) ✅ Verified |
+| ACP | [`0x6bD736859470e02f12536131Ae842ad036dE84C4`](https://basescan.org/address/0x6bD736859470e02f12536131Ae842ad036dE84C4#code) ✅ **Verified** |
 | NFTFlip | *pending deployment* |
 | Alpha | *pending deployment* |
 | Launchpad | *pending deployment* |
 
-**Frontend**: [GitHub](https://github.com/promptrbot/agent-coordination-pool/tree/main/frontend) | *Vercel deployment pending*
+**Frontend**: [https://frontend-liart-one-97.vercel.app](https://frontend-liart-one-97.vercel.app) | [GitHub](https://github.com/promptrbot/agent-coordination-pool/tree/main/frontend)
 
 ---
 
